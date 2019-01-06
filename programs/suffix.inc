@@ -22,8 +22,8 @@
 #ifdef __STDC_ALLOC_LIB__ /* for strdup */
 # define __STDC_WANT_LIB_EXT2__ 1
 #endif
-#ifndef _XOPEN_SOURCE /* for strdup */
-# define _XOPEN_SOURCE 500
+#ifndef _XOPEN_SOURCE /* for strdup, snprintf */
+# define _XOPEN_SOURCE 700
 #endif
 #include <stdlib.h>
 #include <stdio.h>
@@ -41,7 +41,7 @@ suffix (const char *filename, const char *ext);
 char *
 suffix (const char *filename, const char *ext)
 {
-  char *copy = strdup (filename);
+  char *copy = strdup (filename ? filename : "");
 #ifdef HAVE_BASENAME
   char *base = basename (copy);
 #else

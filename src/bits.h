@@ -164,7 +164,7 @@ bit_read_3BLL(Bit_Chain *dat); /*unused but as documented*/
 void
 bit_write_BLL(Bit_Chain *dat, BITCODE_BLL value);
 void
-bit_write_3BLL(Bit_Chain * dat, BITCODE_BLL value);
+bit_write_3BLL(Bit_Chain *dat, BITCODE_BLL value);
 
 BITCODE_BD
 bit_read_BD(Bit_Chain *dat);
@@ -220,14 +220,17 @@ bit_read_CRC(Bit_Chain *dat);
 
 int
 bit_check_CRC(Bit_Chain *dat, long unsigned int start_address,
-              uint16_t seed);
+              const uint16_t seed);
 
 uint16_t
 bit_write_CRC(Bit_Chain *dat, long unsigned int start_address,
-              uint16_t seed);
+              const uint16_t seed);
 
 uint16_t
-bit_calc_CRC(uint16_t seed, unsigned char *adr, long len);
+bit_calc_CRC(const uint16_t seed, unsigned char *adr, long len);
+
+uint32_t
+bit_calc_CRC32(const uint32_t seed, unsigned char *adr, long len);
 
 BITCODE_TF
 bit_read_TF(Bit_Chain *dat, int length);
@@ -258,6 +261,10 @@ bit_convert_TU(BITCODE_TU restrict wstr);
     Eventually needed by dwg writers (dxf2dwg) */
 EXPORT BITCODE_TU
 bit_utf8_to_TU(char* restrict str);
+
+/* compare an ASCII/utf-8 string to a r2007+ name */
+int
+bit_eq_TU(const char* str, BITCODE_TU restrict wstr);
 
 BITCODE_RL
 bit_read_L(Bit_Chain *dat);

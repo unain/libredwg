@@ -736,19 +736,26 @@ bit_write_BD(Bit_Chain * dat, double value)
     }
 }
 
-/** Read 1 modular char (max 4 bytes, signed).
+/** Read 1 modular char (max 5 bytes, signed).
+    Read bytes until the high bit of the byte is 0, drop the highest bit and pad with 0.
+    If the last byte has 0x40 set, it's negative.
+    Since the result is int32_t (4 byte), but there needs to be the high/follow bit set,
+    the stream can be max 5 byte long (5*7 = 35 bit)
+    10000000 10000000 10000000 10000000 00000100
+ =>  0000000  0000000  0000000  0000000  0000100 (5*7 = 35)
+ => 00001000 00000000 00000000 00000000          (4*8 = 32)
  */
 BITCODE_MC
 bit_read_MC(Bit_Chain * dat)
 {
   int i, j;
   int negative;
-  unsigned char byte[4];
-  long unsigned int result;
+  unsigned char byte[5];
+  BITCODE_UMC result;
 
   negative = 0;
   result = 0;
-  for (i = 3, j = 0; i >= 0; i--, j += 7)
+  for (i = 4, j = 0; i >= 0; i--, j += 7)
     {
       byte[i] = bit_read_RC(dat);
       if (!(byte[i] & 0x80))
@@ -758,47 +765,42 @@ bit_read_MC(Bit_Chain * dat)
               negative = 1;
               byte[i] &= 0xbf;
             }
-          result |= (((long unsigned int) byte[i]) << j);
-          return (negative ? -((long int) result) : (long int) result);
+          result |= (((BITCODE_UMC) byte[i]) << j);
+          return (negative ? -((BITCODE_MC) result) : (BITCODE_MC) result);
         }
       else
         byte[i] &= 0x7f;
-      result |= ((long unsigned int) byte[i]) << j;
+
+      result |= ((BITCODE_UMC) byte[i]) << j;
     }
 
-  LOG_ERROR("bit_read_MC: error parsing modular char.")
+  LOG_ERROR("bit_read_MC: error parsing modular char, i=%d,j=%d,result=0x%lx", i,j,result)
   return 0; /* error... */
 }
 
-/** Write 1 modular char (max 4 bytes, signed).
+/** Write 1 modular char (max 5 bytes, signed).
  */
 void
 bit_write_MC(Bit_Chain * dat, BITCODE_MC val)
 {
   int i, j;
-  int negative;
-  unsigned char byte[4];
-  long unsigned int mask;
-  long unsigned int value;
+  int negative = 0;
+  unsigned char byte[5];
+  BITCODE_UMC mask = 0x0000007f;
+  BITCODE_UMC value = (BITCODE_UMC)val;
 
   if (val < 0)
     {
       negative = 1;
-      value = (long unsigned int) -val;
+      value = (BITCODE_UMC) -val;
     }
-  else
-    {
-      negative = 0;
-      value = (long unsigned int) val;
-    }
-  mask = 0x0000007f;
-  for (i = 3, j = 0; i > -1; i--, j += 7)
+  for (i = 4, j = 0; i >= 0; i--, j += 7)
     {
       byte[i] = (unsigned char) ((value & mask) >> j);
       byte[i] |= 0x80;
       mask = mask << 7;
     }
-  for (i = 0; i < 3; i++)
+  for (i = 0; i < 4; i++)
     if (byte[i] & 0x7f)
       break;
 
@@ -807,64 +809,65 @@ bit_write_MC(Bit_Chain * dat, BITCODE_MC val)
   byte[i] &= 0x7f;
   if (negative)
     byte[i] |= 0x40;
-  for (j = 3; j >= i; j--)
+  for (j = 4; j >= i; j--)
     bit_write_RC(dat, byte[j]);
 }
 
-/** Read 1 modular char (max 4 bytes, unsigned).
+/** Read 1 modular char (max 5 bytes, unsigned).
  */
 BITCODE_UMC
 bit_read_UMC(Bit_Chain * dat)
 {
   int i, j;
-  unsigned char byte[4];
-  long unsigned int result;
+  unsigned char byte[5];
+  BITCODE_UMC result;
 
   result = 0;
-  for (i = 3, j = 0; i >= 0; i--, j += 7)
+  for (i = 4, j = 0; i >= 0; i--, j += 7)
     {
       byte[i] = bit_read_RC(dat);
       if (!(byte[i] & 0x80))
         {
-          result |= (((long unsigned int) byte[i]) << j);
+          result |= (((BITCODE_UMC) byte[i]) << j);
           return result;
         }
       else
         byte[i] &= 0x7f;
-      result |= ((long unsigned int) byte[i]) << j;
+
+      result |= ((BITCODE_UMC) byte[i]) << j;
     }
 
-  LOG_ERROR("bit_read_MC: error parsing modular char.")
+  LOG_ERROR("bit_read_UMC: error parsing modular char, i=%d,j=%d,result=0x%lx", i,j,result)
   return 0; /* error... */
 }
 
-/** Write 1 modular char (max 4 bytes, unsigned).
+/** Write 1 modular char (max 5 bytes, unsigned).
  */
 void
 bit_write_UMC(Bit_Chain * dat, BITCODE_UMC val)
 {
   int i, j;
   int negative;
-  unsigned char byte[4];
-  long unsigned int mask;
-  long unsigned int value;
+  unsigned char byte[5];
+  BITCODE_UMC mask;
+  BITCODE_UMC value;
 
-  value = (long unsigned int) val;
+  value = val;
   mask = 0x0000007f;
-  for (i = 3, j = 0; i > -1; i--, j += 7)
+  for (i = 4, j = 0; i >= 0; i--, j += 7)
     {
       byte[i] = (unsigned char) ((value & mask) >> j);
       byte[i] |= 0x80;
       mask = mask << 7;
     }
-  for (i = 0; i < 3; i++)
+  for (i = 0; i < 4; i++)
     if (byte[i] & 0x7f)
       break;
 
   if (byte[i] & 0x40)
     i--;
   byte[i] &= 0x7f;
-  for (j = 3; j >= i; j--)
+  for (j = 4; j >= i; j--)
     bit_write_RC(dat, byte[j]);
 }
 
@@ -874,8 +877,8 @@ BITCODE_MS
 bit_read_MS(Bit_Chain * dat)
 {
   int i, j;
-  unsigned int word[2];
-  long unsigned int result;
+  BITCODE_RS word[2];
+  BITCODE_MS result;
 
   result = 0;
   for (i = 1, j = 0; i > -1; i--, j += 15)
@@ -883,21 +886,21 @@ bit_read_MS(Bit_Chain * dat)
       word[i] = bit_read_RS(dat);
       if (!(word[i] & 0x8000))
         {
-          result |= (((long unsigned int) word[i]) << j);
-          return result;
+          result |= (((BITCODE_MS) word[i]) << j);
+          return (BITCODE_MS)result;
         }
       else
         word[i] &= 0x7fff;
-      result |= ((long unsigned int) word[i]) << j;
+      result |= ((BITCODE_MS) word[i]) << j;
     }
-  LOG_ERROR("bit_read_MS: error parsing modular short.")
+  LOG_ERROR("bit_read_MS: error parsing modular short, i=%d,j=%d", i,j)
   return 0; /* error... */
 }
 
 /** Write 1 modular short (max 2 words).
  */
 void
-bit_write_MS(Bit_Chain * dat, long unsigned int value)
+bit_write_MS(Bit_Chain * dat, BITCODE_MS value)
 {
   if (value > 0x7fff)
     {
@@ -1119,14 +1122,13 @@ bit_write_H(Bit_Chain *restrict dat, Dwg_Handle *restrict handle)
     bit_write_RC(dat, val[i]);
 }
 
-/** Only read CRK-numbers, without checking, only in order to go to
- * the next byte, while jumping contingent non-used bits
+/** Only read old 16bit CRC-numbers, without checking, only in order
+ *  to go to the next byte, while skipping non-aligned bits.
  */
 uint16_t
 bit_read_CRC(Bit_Chain * dat)
 {
   uint16_t result;
-  unsigned char res[2];
   long unsigned int start_address;
 
   if (dat->bit > 0)
@@ -1135,42 +1137,36 @@ bit_read_CRC(Bit_Chain * dat)
       dat->bit = 0;
     }
   start_address = dat->byte;
-  res[0] = bit_read_RC(dat);
-  res[1] = bit_read_RC(dat);
-
-  result = (res[0] << 8 | res[1]);
+  result = bit_read_RS(dat);
   LOG_TRACE("read CRC at %lx: 0x%x\n", start_address, result)
 
   return result;
 }
 
-/** Read and check CRC-number.
+/** Read and check old 16bit CRC.
  */
 int
 bit_check_CRC(Bit_Chain * dat, long unsigned int start_address,
               uint16_t seed)
 {
-  unsigned int calculated;
-  unsigned int read;
-  unsigned char res[2];
+  uint16_t calculated;
+  uint16_t read;
 
   if (dat->bit > 0)
-    dat->byte++;
-  dat->bit = 0;
+    {
+      dat->byte++;
+      dat->bit = 0;
+    }
 
   calculated = bit_calc_CRC(seed, &(dat->chain[start_address]),
                             dat->byte - start_address);
-
-  res[0] = bit_read_RC(dat);
-  res[1] = bit_read_RC(dat);
-
-  read = (unsigned int) (res[0] << 8 | res[1]);
+  read = bit_read_RS(dat);
   LOG_TRACE("check CRC at %lx: 0x%x <=> 0x%x\n", start_address, calculated, read)
 
   return (calculated == read);
 }
 
-/** Create and write CRC-number.
+/** Create and write old 16bit CRC.
  */
 uint16_t
 bit_write_CRC(Bit_Chain * dat, long unsigned int start_address,
@@ -1183,9 +1179,8 @@ bit_write_CRC(Bit_Chain * dat, long unsigned int start_address,
 
   crc = bit_calc_CRC(seed, &(dat->chain[start_address]), dat->byte - start_address);
 
-  bit_write_RC(dat, (unsigned char) (crc >> 8));
-  bit_write_RC(dat, (unsigned char) (crc & 0xFF));
-  LOG_TRACE("write CRC at %lx: 0x%x\n", start_address, crc)
+  bit_write_RS(dat, crc);
+  LOG_TRACE("write CRC at %lx: %04X\n", start_address, crc)
   return (crc);
 }
 
@@ -1319,9 +1314,13 @@ bit_convert_TU(BITCODE_TU restrict wstr)
   BITCODE_TU tmp = wstr;
   char *str;
   int i, len = 0;
-  uint16_t c;
-  while (*tmp++) {
+  uint16_t c = 0;
+  while ((c = *tmp++)) {
     len++;
+    if (c >= 256)
+      len++;
+    if (c >= 0x800)
+      len++;
   }
   str = malloc(len+1);
   i = 0;
@@ -1330,24 +1329,24 @@ bit_convert_TU(BITCODE_TU restrict wstr)
       str[i++] = c & 0xff;
     }
     else if (c < 0x800) {
-      if (i+3 > len) {
+      /*if (i+3 > len) {
         str = realloc(str, i+3);
         len = i+2;
-      }
+      }*/
       str[i+1] = (c & 0x3f) | 0x80;
-      str[i] = (c >> 6) & 0xc0;
+      str[i]   = (c >> 6) | 0xc0;
       i += 2;
     }
     else { /* windows ucs-2 has no D800-DC00 surrogate pairs. go straight up */
-      if (i+3 > len) {
+      /*if (i+3 > len) {
         str = realloc(str, i+4);
         len = i+3;
-      }
-      str[i+3] = (c & 0x3f) | 0x80;
-      c >>= 6;
+      }*/
       str[i+2] = (c & 0x3f) | 0x80;
       c >>= 6;
-      str[i] = c & 0xe0;
+      str[i+1] = (c & 0x3f) | 0x80;
+      c >>= 6;
+      str[i] = c | 0xe0;
       i += 3;
     }
   }
@@ -1394,6 +1393,16 @@ bit_utf8_to_TU(char* restrict str)
   }
   wstr[i] = '\0';
   return wstr;
+}
+
+/* compare an ASCII/utf-8 string to a r2007+ name */
+int
+bit_eq_TU(const char *restrict str, BITCODE_TU restrict wstr)
+{
+  char* utf8 = bit_convert_TU(wstr);
+  int result = strcmp(str, utf8) ? 0 : 1;
+  free(utf8);
+  return result;
 }
 
 /** Read 1 bitlong according to normal order
@@ -1609,7 +1618,7 @@ bit_print(Bit_Chain * dat, long unsigned int size)
     {
       if (i % 16 == 0)
         printf("\n[0x%04X]: ", (unsigned int) i);
-      printf("%02X ", dat->chain[i]);
+      printf("%02X ", (unsigned char)dat->chain[i]);
       if (i % 16 == 15)
         for (j = i - 15; j <= i; j++)
           {
@@ -1686,11 +1695,12 @@ bit_explore_chain(Bit_Chain * dat, long unsigned int size)
 }
 
 uint16_t
-bit_calc_CRC(uint16_t dx, unsigned char *addr, long len)
+bit_calc_CRC(const uint16_t seed, unsigned char *addr, long len)
 {
   register unsigned char al;
+  register uint16_t dx = seed;
 
-  static uint16_t ckrtable[256] =
+  static const uint16_t crctable[256] =
       { 0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241, 0xC601,
         0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440, 0xCC01, 0x0CC0,
         0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40, 0x0A00, 0xCAC1, 0xCB81,
@@ -1724,9 +1734,91 @@ bit_calc_CRC(uint16_t dx, unsigned char *addr, long len)
   for (; len > 0; len--)
     {
       al = (unsigned char) ((*addr) ^ ((unsigned char) (dx & 0xFF)));
-      dx = (dx >> 8) & 0xFF;
-      dx = dx ^ ckrtable[al];
+      dx = ((dx >> 8) & 0xFF) ^ crctable[al];
       addr++;
     }
-  return (dx);
+  return dx;
+}
+
+uint32_t
+bit_calc_CRC32(const uint32_t seed, unsigned char *addr, long len)
+{
+  register unsigned char al;
+  register uint32_t dx = ~seed; /* inverted */
+
+  static const uint32_t crctable[256] =
+    {
+      0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
+      0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
+      0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988,
+      0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91,
+      0x1db71064, 0x6ab020f2, 0xf3b97148, 0x84be41de,
+      0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
+      0x136c9856, 0x646ba8c0, 0xfd62f97a, 0x8a65c9ec,
+      0x14015c4f, 0x63066cd9, 0xfa0f3d63, 0x8d080df5,
+      0x3b6e20c8, 0x4c69105e, 0xd56041e4, 0xa2677172,
+      0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b,
+      0x35b5a8fa, 0x42b2986c, 0xdbbbc9d6, 0xacbcf940,
+      0x32d86ce3, 0x45df5c75, 0xdcd60dcf, 0xabd13d59,
+      0x26d930ac, 0x51de003a, 0xc8d75180, 0xbfd06116,
+      0x21b4f4b5, 0x56b3c423, 0xcfba9599, 0xb8bda50f,
+      0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
+      0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d,
+      0x76dc4190, 0x01db7106, 0x98d220bc, 0xefd5102a,
+      0x71b18589, 0x06b6b51f, 0x9fbfe4a5, 0xe8b8d433,
+      0x7807c9a2, 0x0f00f934, 0x9609a88e, 0xe10e9818,
+      0x7f6a0dbb, 0x086d3d2d, 0x91646c97, 0xe6635c01,
+      0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e,
+      0x6c0695ed, 0x1b01a57b, 0x8208f4c1, 0xf50fc457,
+      0x65b0d9c6, 0x12b7e950, 0x8bbeb8ea, 0xfcb9887c,
+      0x62dd1ddf, 0x15da2d49, 0x8cd37cf3, 0xfbd44c65,
+      0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2,
+      0x4adfa541, 0x3dd895d7, 0xa4d1c46d, 0xd3d6f4fb,
+      0x4369e96a, 0x346ed9fc, 0xad678846, 0xda60b8d0,
+      0x44042d73, 0x33031de5, 0xaa0a4c5f, 0xdd0d7cc9,
+      0x5005713c, 0x270241aa, 0xbe0b1010, 0xc90c2086,
+      0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
+      0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4,
+      0x59b33d17, 0x2eb40d81, 0xb7bd5c3b, 0xc0ba6cad,
+      0xedb88320, 0x9abfb3b6, 0x03b6e20c, 0x74b1d29a,
+      0xead54739, 0x9dd277af, 0x04db2615, 0x73dc1683,
+      0xe3630b12, 0x94643b84, 0x0d6d6a3e, 0x7a6a5aa8,
+      0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1,
+      0xf00f9344, 0x8708a3d2, 0x1e01f268, 0x6906c2fe,
+      0xf762575d, 0x806567cb, 0x196c3671, 0x6e6b06e7,
+      0xfed41b76, 0x89d32be0, 0x10da7a5a, 0x67dd4acc,
+      0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5,
+      0xd6d6a3e8, 0xa1d1937e, 0x38d8c2c4, 0x4fdff252,
+      0xd1bb67f1, 0xa6bc5767, 0x3fb506dd, 0x48b2364b,
+      0xd80d2bda, 0xaf0a1b4c, 0x36034af6, 0x41047a60,
+      0xdf60efc3, 0xa867df55, 0x316e8eef, 0x4669be79,
+      0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
+      0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f,
+      0xc5ba3bbe, 0xb2bd0b28, 0x2bb45a92, 0x5cb36a04,
+      0xc2d7ffa7, 0xb5d0cf31, 0x2cd99e8b, 0x5bdeae1d,
+      0x9b64c2b0, 0xec63f226, 0x756aa39c, 0x026d930a,
+      0x9c0906a9, 0xeb0e363f, 0x72076785, 0x05005713,
+      0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38,
+      0x92d28e9b, 0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21,
+      0x86d3d2d4, 0xf1d4e242, 0x68ddb3f8, 0x1fda836e,
+      0x81be16cd, 0xf6b9265b, 0x6fb077e1, 0x18b74777,
+      0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c,
+      0x8f659eff, 0xf862ae69, 0x616bffd3, 0x166ccf45,
+      0xa00ae278, 0xd70dd2ee, 0x4e048354, 0x3903b3c2,
+      0xa7672661, 0xd06016f7, 0x4969474d, 0x3e6e77db,
+      0xaed16a4a, 0xd9d65adc, 0x40df0b66, 0x37d83bf0,
+      0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
+      0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6,
+      0xbad03605, 0xcdd70693, 0x54de5729, 0x23d967bf,
+      0xb3667a2e, 0xc4614ab8, 0x5d681b02, 0x2a6f2b94,
+      0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
+    };
+
+  for (; len > 0; len--)
+    {
+      al = (unsigned char) ((*addr) ^ ((unsigned char) (dx & 0xFF)));
+      dx = ((dx >> 8) & 0xFF) ^ crctable[al];
+      addr++;
+    }
+  return ~dx;
 }

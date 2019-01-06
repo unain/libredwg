@@ -24,8 +24,8 @@
         if (ent->picture_size < 210210)
           {
             if (ent->picture_size >= 0) { // negative values for what reason?
-              //or FIELD_BINARY for DXF
-              FIELD_TF (picture, (int)ent->picture_size, 310);
+              DXF  { FIELD_BINARY (picture, (int)ent->picture_size, 310); }
+              else { FIELD_TF (picture, (int)ent->picture_size, 310); }
               //ent->picture = bit_read_TF(dat, ent->picture_size); // DXF 310 BINARY
             }
           }
@@ -43,18 +43,18 @@
     {
 #ifdef IS_DECODER
       obj->bitsize = bit_read_RL(dat); // until the handles
-      LOG_TRACE("Entity bitsize: " FORMAT_BL " @%lu.%u\n", obj->bitsize,
-                dat->byte, dat->bit)
 #endif
 #ifdef IS_ENCODER
       bit_write_RL(dat, obj->bitsize);
+#endif
       LOG_TRACE("Entity bitsize: " FORMAT_BL " @%lu.%u\n", obj->bitsize,
                 dat->byte, dat->bit)
-#endif
     }
 
-  FIELD_BB (entity_mode, 0);  //ODA bug
-  FIELD_BL (num_reactors, 0); //ODA bug
+  // TODO: r13-r14: 6B flags + 6B common params
+  FIELD_BB (entmode, 0);
+  // TODO: 2 more BB's
+  FIELD_BL (num_reactors, 0); //ODA bug: BB as BS
 
   VERSIONS(R_13, R_14) //ODA bug
     {
@@ -91,12 +91,12 @@
         LOG_HANDLE("color.index: %d [EMC 62]\n", ent->color.index);
       }
       DXF {
-        FIELD_BS (color.index, 62);
+        if (FIELD_VALUE(color.index) != 256)
+          FIELD_BS (color.index, 62);
       }
 
       if (flags & 0x40)
-        {
-          // r2004+ in handle stream
+        { // r2004+ in handle stream
           FIELD_HANDLE(color_handle, 0, 0);
         }
       if (flags & 0x20)
@@ -158,7 +158,12 @@
   OTHER_VERSIONS
     FIELD_CMC(color, 62,420);
 
-  FIELD_BD (linetype_scale, 48);
+  DXF {
+    if (FIELD_VALUE(linetype_scale) != 1.0)
+      FIELD_BD (linetype_scale, 48);
+  } else {
+    FIELD_BD (linetype_scale, 48);
+  }
   SINCE(R_2000)
     {
       // 00 BYLAYER, 01 BYBLOCK, 10 CONTINUOUS, 11 ltype handle
@@ -182,10 +187,20 @@
       FIELD_B (has_edge_visualstyle, 0);
     }
 
-  FIELD_BS (invisible, 60); //bit 0: 0 visible, 1 invisible
+  DXF {
+    if (FIELD_VALUE(invisible))
+      FIELD_BS (invisible, 60);
+  } else {
+    FIELD_BS (invisible, 60); //bit 0: 0 visible, 1 invisible
+  }
 
-  SINCE(R_2000)
-    {
-      FIELD_RCu (lineweight, 370);
+  SINCE(R_2000) {
+    DXF_OR_PRINT {
+      if (FIELD_VALUE(linewt) != 29) {
+        int lw = dxf_cvt_lweight(FIELD_VALUE(linewt));
+        KEY(linewt); VALUE_RC((signed char)lw, 370);
+      }
+    } else {
+      FIELD_RC (linewt, 370);
     }
-
+  }

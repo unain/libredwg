@@ -511,13 +511,21 @@
       FIELD_BL (FLAGS, 70);
       DECODER {
           FIELD_VALUE(CELWEIGHT) = FIELD_VALUE(FLAGS) & 0x1f;
+          FIELD_G_TRACE(CELWEIGHT, RC, 370)
           FIELD_VALUE(ENDCAPS)   = FIELD_VALUE(FLAGS) & 0x60 ? 1 : 0;
+          FIELD_G_TRACE(ENDCAPS, RC, 280)
           FIELD_VALUE(JOINSTYLE) = FIELD_VALUE(FLAGS) & 0x180 ? 1 : 0;
+          FIELD_G_TRACE(JOINSTYLE, RC, 280)
           FIELD_VALUE(LWDISPLAY) = FIELD_VALUE(FLAGS) & 0x200 ? 0 : 1;
+          FIELD_G_TRACE(LWDISPLAY, B, 290)
           FIELD_VALUE(XEDIT)     = FIELD_VALUE(FLAGS) & 0x400 ? 0 : 1;
+          FIELD_G_TRACE(XEDIT, B, 290)
           FIELD_VALUE(EXTNAMES)  = FIELD_VALUE(FLAGS) & 0x800 ? 1 : 0;
+          FIELD_G_TRACE(EXTNAMES, B, 290)
           FIELD_VALUE(PSTYLEMODE) = FIELD_VALUE(FLAGS) & 0x2000 ? 1 : 0;
+          FIELD_G_TRACE(PSTYLEMODE, B, 290)
           FIELD_VALUE(OLESTARTUP) = FIELD_VALUE(FLAGS) & 0x4000 ? 1 : 0;
+          FIELD_G_TRACE(OLESTARTUP, B, 290)
       }
       FIELD_BS (INSUNITS, 70);
       FIELD_BS (CEPSNTYPE, 70);
@@ -622,7 +630,7 @@
     }
 
   /* TODO: This really is the section[0] crc not related to the header */
-  FIELD_RS (crc, 0);
+  FIELD_RSx (crc, 0);
 
   SINCE(R_2007) {
     SECTION_STRING_STREAM

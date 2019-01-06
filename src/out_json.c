@@ -21,6 +21,15 @@
 #include <string.h>
 #include <assert.h>
 
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#define HAVE_ALLOCA
+#elif defined(_WIN32) && defined(HAVE_MALLOC_H)
+#include <malloc.h>
+#define alloca(s) _alloca(s)
+#define HAVE_ALLOCA
+#endif
+
 #include "common.h"
 #include "bits.h"
 #include "dwg.h"
@@ -32,6 +41,19 @@
 
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
+/* see also examples/unknown.c */
+static char* cquote(char *restrict dest, const char *restrict src);
+#ifdef HAVE_NATIVE_WCHAR2
+static wchar_t* wcquote(wchar_t *restrict dest, const wchar_t *restrict src);
+#endif
+static void  print_wcquote(Bit_Chain *restrict dat, dwg_wchar_t *restrict wstr);
+
+#ifndef HAVE_ALLOCA
+static inline char* alloca(size_t size);
+static inline char* alloca(size_t size) {
+  return malloc(size);
+}
+#endif
 
 /*--------------------------------------------------------------------------------
  * MACROS
@@ -39,221 +61,373 @@ static unsigned int cur_ver = 0;
 
 #define ACTION json
 #define IS_PRINT
+#define IS_JSON
 
-#define PREFIX   for (int _i=0; _i<dat->bit; _i++) { fprintf (dat->fh, "  "); }
-#define ARRAY    PREFIX fprintf (dat->fh, "[\n"); dat->bit++
-#define ENDARRAY dat->bit--; PREFIX fprintf (dat->fh, "],\n")
+#define PREFIX   _prefix(dat);
+#define ARRAY    fprintf (dat->fh, "[\n"); dat->bit++
+#define ENDARRAY fprintf (dat->fh, "\n"); dat->bit--; PREFIX fprintf (dat->fh, "],\n")
+#define LASTENDARRAY fprintf (dat->fh, "\n"); dat->bit--; PREFIX fprintf (dat->fh, "]\n")
+#define KEYs(nam) PREFIX fprintf (dat->fh, "\"%s\": ", nam)
+#define KEY(nam) PREFIX fprintf (dat->fh, "\"%s\": ", #nam)
 #define HASH     PREFIX fprintf (dat->fh, "{\n"); dat->bit++
-#define ENDHASH  dat->bit--; PREFIX fprintf (dat->fh, "},\n")
-#define SECTION(name) PREFIX fprintf (dat->fh, "\"%s\": [\n", #name); dat->bit++;
-#define ENDSEC()  ENDARRAY
-#define NOCOMMA   fseek(dat->fh, -2, SEEK_CUR)
+#define ENDHASH  fprintf (dat->fh, "\n"); dat->bit--; PREFIX fprintf (dat->fh, "},\n")
+#define LASTENDHASH fprintf (dat->fh, "\n"); dat->bit--; PREFIX fprintf (dat->fh, "}")
+#define NOCOMMA  fseek(dat->fh, -2, SEEK_CUR)
 
+#define TABLE(nam) KEY(nam); HASH
+#define ENDTAB()    NOCOMMA; ENDHASH
+// a namd hash
+#define RECORD(nam) KEY(nam); HASH
+#define ENDRECORD()  NOCOMMA; ENDHASH
+// a named list
+#define SECTION(nam) PREFIX fprintf (dat->fh, "\"%s\": [\n", #nam); dat->bit++;
+#define ENDSEC()      ENDARRAY
+
+#undef  FORMAT_RC
+#define FORMAT_RC "%d"
 #define VALUE(value,type,dxf) \
-    fprintf(dat->fh, FORMAT_##type, value)
+  fprintf(dat->fh, FORMAT_##type ",\n", value)
+#define VALUE_B(value,dxf)  VALUE(value, B, dxf)
 #define VALUE_RC(value,dxf) VALUE(value, RC, dxf)
 #define VALUE_RS(value,dxf) VALUE(value, RS, dxf)
 #define VALUE_RL(value,dxf) VALUE(value, RL, dxf)
 #define VALUE_RD(value,dxf) VALUE(value, RD, dxf)
+#define VALUE_2RD(pt,dxf) \
+    fprintf(dat->fh, "[ %f, %f ],\n", pt.x, pt.y)
+#define VALUE_2DD(pt,d1,d2,dxf) VALUE_2RD(pt,dxf)
+#define VALUE_3RD(pt,dxf) \
+  fprintf(dat->fh, "[ %f, %f, %f ],\n", pt.x, pt.y, pt.z)
+#define VALUE_3BD(pt,dxf) VALUE_3RD(pt,dxf)
+#define VALUE_TV(nam,dxf)
 
-#define FIELD(name,type,dxf) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_##type ",\n", _obj->name)
-#define _FIELD(name,type,value) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_##type ",\n", obj->name)
-#define ENT_FIELD(name,type,value) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_##type ",\n", _ent->name)
-#define FIELD_CAST(name,type,cast,dxf) FIELD(name,cast,dxf)
-#define FIELD_TRACE(name,type)
-#define FIELD_TEXT(name,str) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": \"%s\",\n", str ? str : "")
-#ifdef HAVE_NATIVE_WCHAR2
-# define FIELD_TEXT_TU(name,wstr) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": \"%ls\",\n", wstr ? (wchar_t*)wstr : L"")
-#else
-# define FIELD_TEXT_TU(name,wstr) \
+#define FIELD(nam,type,dxf) \
+  { PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_##type ",\n", _obj->nam); }
+#define _FIELD(nam,type,value) \
+  { PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_##type ",\n", obj->nam); }
+#define ENT_FIELD(nam,type,value) \
+  { PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_##type ",\n", _ent->nam); }
+#define SUB_FIELD(o,nam,type,dxf) \
+  { PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_##type ",\n", _obj->o.nam); }
+
+#define FIELD_CAST(nam,type,cast,dxf) FIELD(nam,cast,dxf)
+#define FIELD_TRACE(nam,type)
+#define FIELD_G_TRACE(nam,type,dxf)
+#ifdef HAVE_ALLOCA
+#define FIELD_TEXT(nam,str) \
   { \
-    BITCODE_TU ws = (BITCODE_TU)wstr;\
-    uint16_t _c; PREFIX \
-    fprintf(dat->fh, "\"" #name "\": \""); \
-    if (ws) { \
-      while ((_c = *ws++)) { \
-        fprintf(dat->fh, "%c", (char)(_c & 0xff)); \
-      } \
-    }\
-    fprintf(dat->fh, "\",\n"); \
+    PREFIX \
+    if (str && (strchr(str, '"') || strchr(str, '\\'))) { \
+      char *_buf = alloca(2*strlen(str)); \
+      fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
+    } else { \
+      fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", str ? str : ""); \
+    } \
+  }
+#else
+#define FIELD_TEXT(nam,str) \
+  { \
+    PREFIX \
+    if (str && (strchr(str, '"') || strchr(str, '\\'))) { \
+      char *_buf = malloc(2*strlen(str)); \
+      fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
+      free(_buf); \
+    } else { \
+      fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", str ? str : ""); \
+    } \
   }
 #endif
 
-#define FIELD_VALUE(name) _obj->name
+#ifdef HAVE_NATIVE_WCHAR2
+# define VALUE_TEXT_TU(wstr) \
+    if (wstr && (wcschr(wstr, L'"') || wcschr(wstr, L'\\'))) { \
+      wchar_t *_buf = malloc(2*wcslen(wstr)); \
+      fprintf(dat->fh, "\"%ls\",\n", wcquote(_buf, wstr)); \
+      free(_buf); \
+    } else { \
+      fprintf(dat->fh, "\"%ls\",\n", wstr ? (wchar_t*)wstr : L""); \
+    }
+#else
+# define VALUE_TEXT_TU(wstr) print_wcquote(dat, (BITCODE_TU)wstr)
+#endif
+#define FIELD_TEXT_TU(nam, wstr) \
+  KEY(nam); VALUE_TEXT_TU((BITCODE_TU)wstr)
+
+#define FIELD_VALUE(nam) _obj->nam
 #define ANYCODE -1
 // todo: only the name, not the ref
-#define VALUE_HANDLE(hdlptr, name, handle_code, dxf)     \
-  PREFIX if (hdlptr) { \
-    fprintf(dat->fh, "\"%s\": \"HANDLE(%d.%d.%lu) absolute:%lu\",\n", #name, \
-           hdlptr->handleref.code,                     \
-           hdlptr->handleref.size,                     \
-           hdlptr->handleref.value,                    \
-           hdlptr->absolute_ref);                      \
-  }
-#define FIELD_HANDLE(name, handle_code, dxf) VALUE_HANDLE(_obj->name, name, handle_code, dxf)
-#define FIELD_DATAHANDLE(name, code, dxf) FIELD_HANDLE(name, code, dxf)
-#define FIELD_HANDLE_N(name, vcount, handle_code, dxf) \
-  PREFIX if (_obj->name) { \
-    fprintf(dat->fh, "\"HANDLE(%d.%d.%lu) absolute:%lu\",\n",\
-           _obj->name->handleref.code,                     \
-           _obj->name->handleref.size,                     \
-           _obj->name->handleref.value,                    \
-           _obj->name->absolute_ref);                      \
+#define VALUE_HANDLE(hdlptr, nam, handle_code, dxf)     \
+  if (hdlptr) { \
+    fprintf(dat->fh, "\"%d.%d.%lu\",\n", \
+            hdlptr->handleref.code, \
+            hdlptr->handleref.size, \
+            hdlptr->handleref.value); \
+  } else { fprintf(dat->fh, "\"0.0.0\",\n"); }
+#define VALUE_H(hdl, dxf) \
+  fprintf(dat->fh, "\"%d.%d.%lu\",\n", \
+            (hdl).code, \
+            (hdl).size, \
+            (hdl).value)
+#define FIELD_HANDLE(nam, handle_code, dxf) \
+  PREFIX if (_obj->nam) { \
+    fprintf(dat->fh, "\"" #nam "\": \"%d.%d.%lu\",\n", \
+            _obj->nam->handleref.code, \
+            _obj->nam->handleref.size, \
+            _obj->nam->handleref.value); \
+  } else { fprintf(dat->fh, "\"" #nam "\": \"0.0.0\",\n"); }
+#define SUB_FIELD_HANDLE(o,nam,handle_code, dxf) \
+  PREFIX if (_obj->o.nam) { \
+    fprintf(dat->fh, "\"" #nam "\": \"%d.%d.%lu\",\n", \
+            _obj->o.nam->handleref.code, \
+            _obj->o.nam->handleref.size, \
+            _obj->o.nam->handleref.value); \
+  } else { fprintf(dat->fh, "\"" #nam "\": \"0.0.0\",\n"); }
+#define FIELD_DATAHANDLE(nam, code, dxf) FIELD_HANDLE(nam, code, dxf)
+#define FIELD_HANDLE_N(nam, vcount, handle_code, dxf) \
+  PREFIX if (_obj->nam) { \
+    fprintf(dat->fh, "\"%d.%d.%lu\",\n", \
+            _obj->nam->handleref.code, \
+            _obj->nam->handleref.size, \
+            _obj->nam->handleref.value); \
   } else {\
-    fprintf(dat->fh, "\"\",\n"); \
+    fprintf(dat->fh, "\"0.0.0\",\n"); \
   }
-
-#define FIELD_B(name,dxf)   FIELD(name, B, dxf)
-#define FIELD_BB(name,dxf)  FIELD(name, BB, dxf)
-#define FIELD_3B(name,dxf)  FIELD(name, 3B, dxf)
-#define FIELD_BS(name,dxf)  FIELD(name, BS, dxf)
-#define FIELD_BL(name,dxf)  FIELD(name, BL, dxf)
-#define FIELD_BLL(name,dxf) FIELD(name, BLL, dxf)
-#define FIELD_BD(name,dxf)  FIELD(name, BD, dxf)
-#define FIELD_RC(name,dxf)  FIELD(name, RC, dxf)
-#define FIELD_RS(name,dxf)  FIELD(name, RS, dxf)
-#define FIELD_RD(name,dxf)  FIELD(name, RD, dxf)
-#define FIELD_RL(name,dxf)  FIELD(name, RL, dxf)
-#define FIELD_RLL(name,dxf) FIELD(name, RLL, dxf)
-#define FIELD_MC(name,dxf)  FIELD(name, MC, dxf)
-#define FIELD_MS(name,dxf)  FIELD(name, MS, dxf)
-#define FIELD_TF(name,len,dxf)  FIELD_TEXT(name, _obj->name)
-#define FIELD_TFF(name,len,dxf) FIELD_TEXT(name, _obj->name)
-#define FIELD_TV(name,dxf)      FIELD_TEXT(name, _obj->name)
-#define FIELD_TU(name,dxf)      FIELD_TEXT_TU(name, (BITCODE_TU)_obj->name)
-#define FIELD_T(name,dxf) \
-  { if (dat->version >= R_2007) { FIELD_TU(name, dxf); } \
-    else                        { FIELD_TV(name, dxf); } }
-#define FIELD_BT(name,dxf)    FIELD(name, BT, dxf);
-#define FIELD_4BITS(name,dxf) FIELD(name,4BITS,dxf)
-#define FIELD_BE(name,dxf)    FIELD_3RD(name,dxf)
-#define FIELD_DD(name, _default, dxf) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_DD ",\n", _obj->name)
-#define FIELD_2DD(name, d1, d2, dxf) { \
-    FIELD_DD(name.x, d1, dxf); \
-    FIELD_DD(name.y, d2, dxf+10); }
-#define FIELD_3DD(name, def, dxf) { \
-    FIELD_DD(name.x, FIELD_VALUE(def.x), dxf); \
-    FIELD_DD(name.y, FIELD_VALUE(def.y), dxf+10); \
-    FIELD_DD(name.z, FIELD_VALUE(def.z), dxf+20); }
-#define FIELD_2RD(name,dxf) {FIELD(name.x, RD, dxf); FIELD(name.y, RD, dxf+10);}
-#define FIELD_2BD(name,dxf) {FIELD(name.x, BD, dxf); FIELD(name.y, BD, dxf+10);}
-#define FIELD_2BD_1(name,dxf) {FIELD(name.x, BD, dxf); FIELD(name.y, BD, dxf+1);}
-#define FIELD_3RD(name,dxf) {FIELD(name.x, RD, dxf); FIELD(name.y, RD, dxf+10); \
-    FIELD(name.z, RD, dxf+20);}
-#define FIELD_3BD(name,dxf) {FIELD(name.x, BD, dxf); FIELD(name.y, BD, dxf+10); \
-    FIELD(name.z, BD, dxf+20);}
-#define FIELD_3BD_1(name,dxf) {FIELD(name.x, BD, dxf); FIELD(name.y, BD, dxf+1); \
-    FIELD(name.z, BD, dxf+2);}
-#define FIELD_3DPOINT(name,dxf) FIELD_3BD(name,dxf)
-#define FIELD_CMC(color,dxf1,dxf2) { \
-  PREFIX fprintf(dat->fh, "\"" #color "\": %d,\n", _obj->color.index); \
-  if (dat->version >= R_2004) { \
-      PREFIX fprintf(dat->fh, "\"" #color "\".rgb: %06x,\n", (unsigned)_obj->color.rgb); \
-    if (_obj->color.flag & 1) \
-      PREFIX fprintf(dat->fh, "\"" #color ".name\": \"%s\",\n", _obj->color.name); \
-    if (_obj->color.flag & 2) \
-      PREFIX fprintf(dat->fh, "\"" #color ".bookname\": \"%s\",\n", _obj->color.book_name); \
-  }\
-}
-#define FIELD_TIMEBLL(name,dxf) \
-    PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_BL "." FORMAT_BL ",\n", \
-            _obj->name.days, _obj->name.ms)
-
-//FIELD_VECTOR_N(name, type, size):
-// reads data of the type indicated by 'type' 'size' times and stores
-// it all in the vector called 'name'.
-#define FIELD_VECTOR_N(name, type, size, dxf)\
-    ARRAY; \
-    for (vcount=0; vcount < (BITCODE_BL)size; vcount++)\
-      {\
-        PREFIX fprintf(dat->fh, "\"" #name "\": " FORMAT_##type ",\n", _obj->name[vcount]); \
-      }\
-    if (size) NOCOMMA;\
-    ENDARRAY;
-#define FIELD_VECTOR_T(name, size, dxf)\
-    ARRAY; \
-    PRE (R_2007) { \
-      for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++) { \
-        PREFIX fprintf(dat->fh, "\"" #name "\": \"%s\",\n", _obj->name[vcount]); \
-      }\
-    } else { \
-      for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++)\
-        FIELD_TEXT_TU(name, _obj->name[vcount]); \
+#define FIELD_BINARY(nam,size,dxf) \
+{ \
+  long len = size; \
+  KEY(nam); \
+  fprintf(dat->fh, "\""); \
+  if (_obj->nam) { \
+    for (long j=0; j < len; j++) { \
+      fprintf(dat->fh, "%02X", _obj->nam[j]); \
     } \
-    if (_obj->size) NOCOMMA;\
+  } \
+  fprintf(dat->fh, "\",\n"); \
+}
+
+#define FIELD_B(nam,dxf)   FIELD(nam, B, dxf)
+#define FIELD_BB(nam,dxf)  FIELD(nam, BB, dxf)
+#define FIELD_3B(nam,dxf)  FIELD(nam, 3B, dxf)
+#define FIELD_BS(nam,dxf)  FIELD(nam, BS, dxf)
+#define FIELD_BL(nam,dxf)  FIELD(nam, BL, dxf)
+#define FIELD_BLL(nam,dxf) FIELD(nam, BLL, dxf)
+#define FIELD_BD(nam,dxf)  FIELD(nam, BD, dxf)
+#define FIELD_RC(nam,dxf)  FIELD(nam, RC, dxf)
+#define FIELD_RS(nam,dxf)  FIELD(nam, RS, dxf)
+#define FIELD_RD(nam,dxf)  FIELD(nam, RD, dxf)
+#define FIELD_RL(nam,dxf)  FIELD(nam, RL, dxf)
+#define FIELD_RLL(nam,dxf) FIELD(nam, RLL, dxf)
+#define FIELD_MC(nam,dxf)  FIELD(nam, MC, dxf)
+#define FIELD_MS(nam,dxf)  FIELD(nam, MS, dxf)
+#define FIELD_TF(nam,len,dxf)  FIELD_TEXT(nam, _obj->nam)
+#define FIELD_TFF(nam,len,dxf) FIELD_TEXT(nam, _obj->nam)
+#define FIELD_TV(nam,dxf)      FIELD_TEXT(nam, _obj->nam)
+#define FIELD_TU(nam,dxf)      FIELD_TEXT_TU(nam, (BITCODE_TU)_obj->nam)
+#define FIELD_T(nam,dxf) \
+  { if (dat->version >= R_2007) { FIELD_TU(nam, dxf); } \
+    else                        { FIELD_TV(nam, dxf); } }
+#define FIELD_BT(nam,dxf)    FIELD(nam, BT, dxf);
+#define FIELD_4BITS(nam,dxf) FIELD(nam,4BITS,dxf)
+#define FIELD_BE(nam,dxf)    FIELD_3RD(nam,dxf)
+#define FIELD_DD(nam, _default, dxf) \
+    PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_DD ",\n", _obj->nam)
+#define FIELD_2DD(nam, d1, d2, dxf) FIELD_2RD(nam,dxf)
+#define FIELD_3DD(nam, def, dxf)    FIELD_3RD(nam,dxf)
+#define FIELD_2RD(nam,dxf) { \
+    PREFIX fprintf(dat->fh, "\"" #nam "\": [ %f, %f ],\n", \
+                   _obj->nam.x, _obj->nam.y); }
+#define FIELD_2BD(nam,dxf)   FIELD_2RD(nam,dxf)
+#define FIELD_2BD_1(nam,dxf) FIELD_2RD(nam,dxf)
+#define FIELD_3RD(nam,dxf) { \
+    PREFIX fprintf(dat->fh, "\"" #nam "\": [ %f, %f, %f ],\n", \
+                   _obj->nam.x, _obj->nam.y, _obj->nam.z); }
+#define FIELD_3BD(nam,dxf)     FIELD_3RD(nam,dxf)
+#define FIELD_3BD_1(nam,dxf)   FIELD_3RD(nam,dxf)
+#define FIELD_3DPOINT(nam,dxf) FIELD_3BD(nam,dxf)
+
+#define SUB_FIELD_T(o,nam,dxf) \
+  { if (dat->version >= R_2007) { KEY(nam); VALUE_TEXT_TU((BITCODE_TU)_obj->o.nam); } \
+    else                        { PREFIX; fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", \
+                                                    _obj->o.nam); } }
+#define SUB_FIELD_B(o,nam,dxf)   SUB_FIELD(o, nam, B, dxf)
+#define SUB_FIELD_BB(o,nam,dxf)  SUB_FIELD(o, nam, BB, dxf)
+#define SUB_FIELD_3B(o,nam,dxf)  SUB_FIELD(o, nam, 3B, dxf)
+#define SUB_FIELD_BS(o,nam,dxf)  SUB_FIELD(o, nam, BS, dxf)
+#define SUB_FIELD_BL(o,nam,dxf)  SUB_FIELD(o, nam, BL, dxf)
+#define SUB_FIELD_BLx(o,nam,dxf) SUB_FIELD(o, nam, BLx, dxf)
+#define SUB_FIELD_BD(o,nam,dxf)  SUB_FIELD(o, nam, BD, dxf)
+#define SUB_FIELD_RC(o,nam,dxf)  SUB_FIELD(o, nam, RC, dxf)
+#define SUB_FIELD_RS(o,nam,dxf)  SUB_FIELD(o, nam, RS, dxf)
+#define SUB_FIELD_RD(o,nam,dxf)  SUB_FIELD(o, nam, RD, dxf)
+#define SUB_FIELD_RL(o,nam,dxf)  SUB_FIELD(o, nam, RL, dxf)
+#define SUB_FIELD_BLL(o,nam,dxf) SUB_FIELD(o, nam, BLL, dxf)
+#define SUB_FIELD_RLL(o,nam,dxf) SUB_FIELD(o, nam, RLL, dxf)
+#define SUB_FIELD_3BD_inl(o,nam,dxf) KEY(nam); VALUE_3RD(_obj->o, dxf)
+#define SUB_FIELD_2BD_1(o,nam,dxf) KEY(nam); VALUE_2RD(_obj->o.nam, dxf)
+#define SUB_FIELD_2RD(o,nam,dxf)   KEY(nam); VALUE_2RD(_obj->o.nam, dxf)
+#define SUB_FIELD_3RD(o,nam,dxf)   KEY(nam); VALUE_3RD(_obj->o.nam, dxf)
+#define SUB_FIELD_3BD(o,nam,dxf)   KEY(nam); VALUE_3RD(_obj->o.nam, dxf)
+#define SUB_FIELD_3DPOINT(o,nam,dxf) KEY(nam); VALUE_3RD(_obj->o.nam, dxf)
+
+#define FIELD_CMC(color,dxf1,dxf2) { \
+  if (dat->version >= R_2004) { \
+    RECORD(color); \
+    PREFIX fprintf(dat->fh, "\"index\": %d,\n", _obj->color.index); \
+    PREFIX fprintf(dat->fh, "\"" #color ".rgb\": \"%06x\",\n", (unsigned)_obj->color.rgb); \
+    /*if (_obj->color.flag & 1) { \
+      PREFIX fprintf(dat->fh, "\"" #color ".name\": \"%s\",\n", _obj->color.name); } \
+    if (_obj->color.flag & 2) { \
+      PREFIX fprintf(dat->fh, "\"" #color ".bookname\": \"%s\",\n", _obj->color.book_name); } */\
+    ENDRECORD(); \
+  } else { \
+    PREFIX fprintf(dat->fh, "\"" #color "\": %d,\n", _obj->color.index); \
+  } \
+}
+#define SUB_FIELD_CMC(o,color,dxf1,dxf2) {    \
+  if (dat->version >= R_2004) { \
+    RECORD(color); \
+    PREFIX fprintf(dat->fh, "\"index\": %d,\n", _obj->o.color.index); \
+    PREFIX fprintf(dat->fh, "\"" #color ".rgb\": \"%06x\",\n", (unsigned)_obj->o.color.rgb); \
+    /*if (_obj->color.flag & 1) { \
+      PREFIX fprintf(dat->fh, "\"" #color ".name\": \"%s\",\n", _obj->o.color.name); } \
+    if (_obj->color.flag & 2) { \
+      PREFIX fprintf(dat->fh, "\"" #color ".bookname\": \"%s\",\n", _obj->o.color.book_name); } */\
+    ENDRECORD(); \
+  } else { \
+    PREFIX fprintf(dat->fh, "\"" #color "\": %d,\n", _obj->o.color.index); \
+  } \
+}
+#define FIELD_TIMEBLL(nam,dxf) \
+    PREFIX fprintf(dat->fh, "\"" #nam "\": " FORMAT_BL "." FORMAT_BL ",\n", \
+            _obj->nam.days, _obj->nam.ms)
+
+//FIELD_VECTOR_N(nam, type, size):
+// reads data of the type indicated by 'type' 'size' times and stores
+// it all in the vector called 'nam'.
+#define FIELD_VECTOR_N(nam, type, size, dxf)\
+    KEY(nam); ARRAY; \
+    if (_obj->nam) { \
+      for (vcount=0; vcount < (BITCODE_BL)size; vcount++)\
+        {\
+          PREFIX fprintf(dat->fh, FORMAT_##type ",\n", _obj->nam[vcount]); \
+        }\
+      if (size) NOCOMMA;\
+    } \
+    ENDARRAY;
+#define FIELD_VECTOR_T(nam, size, dxf)\
+    KEY(nam); ARRAY; \
+    if (_obj->nam) { \
+      PRE (R_2007) { \
+        for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++) { \
+          PREFIX fprintf(dat->fh, "\"%s\",\n", _obj->nam[vcount]); \
+        } \
+      } else { \
+        for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++) { \
+          PREFIX VALUE_TEXT_TU(_obj->nam[vcount]); \
+        } \
+      } \
+      if (_obj->size) NOCOMMA;\
+    } \
     ENDARRAY;
 
-#define FIELD_VECTOR(name, type, size, dxf) FIELD_VECTOR_N(name, type, _obj->size, dxf)
+#define FIELD_VECTOR(nam, type, size, dxf) FIELD_VECTOR_N(nam, type, _obj->size, dxf)
 
-#define FIELD_2RD_VECTOR(name, size, dxf)\
-  ARRAY;\
+#define FIELD_2RD_VECTOR(nam, size, dxf)\
+  KEY(nam); ARRAY;\
   for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++)\
     {\
-      FIELD_2RD(name[vcount], dxf);\
+      VALUE_2RD(FIELD_VALUE(nam[vcount]), dxf); \
     }\
   if (_obj->size) NOCOMMA;\
   ENDARRAY;
 
-#define FIELD_2DD_VECTOR(name, size, dxf)\
-  ARRAY;\
-  FIELD_2RD(name[0], 0);\
-  for (vcount = 1; vcount < (BITCODE_BL)_obj->size; vcount++)\
+#define FIELD_2DD_VECTOR(nam, size, dxf)\
+  KEY(nam); ARRAY;\
+  for (vcount = 0; vcount < (BITCODE_BL)_obj->size; vcount++)\
     {\
-      FIELD_2DD(name[vcount], FIELD_VALUE(name[vcount - 1].x), FIELD_VALUE(name[vcount - 1].y), dxf);\
+      PREFIX VALUE_2RD(_obj->nam[vcount], dxf); \
     }\
   if (_obj->size) NOCOMMA;\
   ENDARRAY;
 
-#define FIELD_3DPOINT_VECTOR(name, size, dxf)\
-  ARRAY;\
+#define FIELD_3DPOINT_VECTOR(nam, size, dxf)\
+  KEY(nam); ARRAY;\
   for (vcount=0; vcount < (BITCODE_BL)_obj->size; vcount++)\
     {\
-      FIELD_3DPOINT(name[vcount], dxf);\
+      PREFIX VALUE_3BD(FIELD_VALUE(nam[vcount]), dxf);\
     }\
   if (_obj->size) NOCOMMA;\
   ENDARRAY;
 
-#define HANDLE_VECTOR_N(name, size, code, dxf) \
+#define HANDLE_VECTOR_N(nam, size, code, dxf) \
+  KEY(nam); \
   ARRAY;\
   for (vcount=0; vcount < (BITCODE_BL)size; vcount++)\
     {\
-      FIELD_HANDLE_N(name[vcount], vcount, code, dxf);\
+      FIELD_HANDLE_N(nam[vcount], vcount, code, dxf);\
     }\
-  if (size) NOCOMMA;                            \
+  if (size) NOCOMMA; \
   ENDARRAY;
 
-#define HANDLE_VECTOR(name, sizefield, code, dxf) \
-  HANDLE_VECTOR_N(name, FIELD_VALUE(sizefield), code, dxf)
+#define HANDLE_VECTOR(nam, sizefield, code, dxf) \
+  HANDLE_VECTOR_N(nam, FIELD_VALUE(sizefield), code, dxf)
+
+#define REPEAT_CN(times, nam, type) \
+  if (_obj->nam) { KEY(nam); ARRAY; } \
+  if (_obj->nam) \
+    for (rcount1=0; rcount1<(BITCODE_BL)times; rcount1++)
+#define REPEAT_N(times, nam, type) \
+  if (_obj->nam) { KEY(nam); ARRAY; } \
+  if (_obj->nam) \
+    for (rcount1=0; rcount1<(BITCODE_BL)times; rcount1++)
+#define _REPEAT_N(times, nam, type, idx) \
+  if (_obj->nam) { KEY(nam); ARRAY; } \
+  if (_obj->nam) \
+    for (rcount##idx=0; rcount##idx<(BITCODE_BL)times; rcount##idx++)
+#define _REPEAT_C(times, nam, type, idx) _REPEAT_N(_obj->times, nam, type, idx)
+#define _REPEAT(times, nam, type, idx)   _REPEAT_N(_obj->times, nam, type, idx)
+#define REPEAT(times, nam, type)  _REPEAT(times, nam, type, 1)
+#define REPEAT2(times, nam, type) _REPEAT(times, nam, type, 2)
+#define REPEAT3(times, nam, type) _REPEAT(times, nam, type, 3)
+#define REPEAT4(times, nam, type) _REPEAT(times, nam, type, 4)
+#define REPEAT_C(times, nam, type)  _REPEAT_C(times, nam, type, 1)
+#define REPEAT2_C(times, nam, type) _REPEAT_C(times, nam, type, 2)
+#define REPEAT3_C(times, nam, type) _REPEAT_C(times, nam, type, 3)
+#define REPEAT4_C(times, nam, type) _REPEAT_C(times, nam, type, 4)
+
+#undef  REPEAT_BLOCK
+#define REPEAT_BLOCK     { HASH;
+#undef  END_REPEAT_BLOCK
+#define END_REPEAT_BLOCK NOCOMMA; ENDHASH; }
+#undef  END_REPEAT
+#define END_REPEAT(nam) if (_obj->nam) { NOCOMMA; ENDARRAY; }
 
 #define FIELD_NUM_INSERTS(num_inserts, type, dxf) \
   FIELD(num_inserts, type, dxf)
 
-#define FIELD_XDATA(name, size)
+#define FIELD_XDATA(nam, size)
 
 #define REACTORS(code)\
-  PREFIX; \
-  fprintf(dat->fh, "\"reactors\":"); ARRAY; \
-  for (vcount=0; vcount < obj->tio.object->num_reactors; vcount++)\
-    {\
-      VALUE_HANDLE(obj->tio.object->reactors[vcount], reactors, code, 330); \
-    }\
-  if (obj->tio.object->num_reactors) NOCOMMA;\
+  KEY(reactors); ARRAY; \
+  if (obj->tio.object->reactors) { \
+    for (vcount=0; vcount < obj->tio.object->num_reactors; vcount++)    \
+      {                                                                 \
+        PREFIX VALUE_HANDLE(obj->tio.object->reactors[vcount], reactors, code, 330); \
+      }                                                                 \
+    NOCOMMA; \
+  } \
   ENDARRAY;
 
 #define XDICOBJHANDLE(code)\
   SINCE(R_2004)\
     {\
-      if (!obj->tio.object->xdic_missing_flag)\
+      if (!obj->tio.object->xdic_missing_flag) {    \
+        KEY(xdicobjhandle); \
         VALUE_HANDLE(obj->tio.object->xdicobjhandle, xdicobjhandle, code, -3); \
+      } \
     }\
   PRIOR_VERSIONS\
     {\
+      KEY(xdicobjhandle); \
       VALUE_HANDLE(obj->tio.object->xdicobjhandle, xdicobjhandle, code, -3); \
     }
 
@@ -262,6 +436,13 @@ static unsigned int cur_ver = 0;
 #define START_STRING_STREAM
 #define END_STRING_STREAM
 #define START_HANDLE_STREAM
+
+
+static void
+_prefix(Bit_Chain* dat) {
+  for (int _i=0; _i < dat->bit; _i++) { fprintf (dat->fh, "  "); }
+}
+
 
 #define DWG_ENTITY(token) \
 static int \
@@ -277,10 +458,17 @@ dwg_json_##token (Bit_Chain *restrict dat, Dwg_Object *restrict obj) \
   _ent = obj->tio.entity;\
   _obj = ent = _ent->tio.token;\
   FIELD_TEXT(entity, #token);\
+  if (strcmp(obj->dxfname, #token)) \
+    FIELD_TEXT(dxfname,obj->dxfname);\
   _FIELD(type,RL,0);\
+  KEY(handle);VALUE_H(obj->handle, 5);\
   _FIELD(size,RL,0);\
   _FIELD(bitsize,BL,0);\
-  ENT_FIELD(picture_exists,B,0);
+  if (_ent->picture_exists) ENT_FIELD(picture_exists,B,0);\
+  SINCE(R_13) { \
+    KEY(owner); VALUE_HANDLE (obj->parent->header_vars.BLOCK_RECORD_MSPACE,owner,0,330); \
+    error |= json_common_entity_handle_data(dat, obj); \
+  }
 
 #define DWG_ENTITY_END return 0; }
 
@@ -296,13 +484,86 @@ dwg_json_ ##token (Bit_Chain *restrict dat, Dwg_Object *restrict obj) \
   LOG_INFO("Object " #token ":\n")\
   _obj = obj->tio.object->tio.token;\
   FIELD_TEXT(object, #token);\
+  if (strcmp(obj->dxfname, #token)) \
+    FIELD_TEXT(dxfname,obj->dxfname);\
   _FIELD(type,RL,0);\
+  KEY(handle);VALUE_H(obj->handle, 5);\
   _FIELD(size,RL,0);\
   _FIELD(bitsize,BL,0);
 
 #define DWG_OBJECT_END return 0; }
 
+static int
+json_common_entity_handle_data(Bit_Chain *restrict dat, Dwg_Object *restrict obj)
+{
+  (void)dat; (void)obj;
+  return 0;
+}
+
 #include "dwg.spec"
+
+static void
+print_wcquote(Bit_Chain *restrict dat, dwg_wchar_t *restrict wstr) {
+  BITCODE_TU ws = (BITCODE_TU)wstr;
+  uint16_t c;
+  fprintf(dat->fh, "\"");
+  if (ws) {
+    while ((c = *ws++)) {
+      if      (c == L'"')  { fprintf(dat->fh, "\\\""); }
+      else if (c == L'\\') { fprintf(dat->fh, "\\\\"); }
+      else if (c == L'\n') { fprintf(dat->fh, "\\n"); }
+      else if (c == L'\r') { fprintf(dat->fh, "\\r"); }
+      else if (c < 0x1f || c > 0xff) {
+        fprintf(dat->fh, "\\u%04x", c);
+      }
+      else
+        fprintf(dat->fh, "%c", (char)(c & 0xff));
+    }
+  }
+  fprintf(dat->fh, "\",\n");
+}
+
+static char*
+cquote(char *restrict dest, const char *restrict src) {
+  char c;
+  char *d = dest;
+  char *s = (char*)src;
+  while ((c = *s++)) {
+    if      (c == '"')  { *dest++ = '\\'; *dest++ = c; }
+    else if (c == '\\') { *dest++ = '\\'; *dest++ = c; }
+    else if (c == '\n') { *dest++ = '\\'; *dest++ = 'n'; }
+    else if (c == '\r') { *dest++ = '\\'; *dest++ = 'r'; }
+    else if (c < 0x1f)  { *dest++ = '\\'; *dest++ = 'u';
+                          *dest++ = '0';  *dest++ = '0';
+                          *dest++ = c < 0x10 ? '0' : '1';
+                          *dest++ = (c % 16 > 10 ? 'a' + (c%16) : '0' + (c%16)); }
+    else                                  *dest++ = c;
+  }
+  *dest = 0; //add final delim, skipped above
+  return d;
+}
+
+#ifdef HAVE_NATIVE_WCHAR2
+static wchar_t*
+wcquote(wchar_t *restrict dest, const wchar_t *restrict src) {
+  wchar_t c;
+  wchar_t *d = dest;
+  wchar_t *s = (wchar_t*)src;
+  while ((c = *s++)) {
+    if      (c == L'"')  { *dest++ = L'\\'; *dest++ = c; }
+    else if (c == L'\\') { *dest++ = L'\\'; *dest++ = c; }
+    else if (c == L'\n') { *dest++ = L'\\'; *dest++ = L'n'; }
+    else if (c == L'\r') { *dest++ = L'\\'; *dest++ = L'r'; }
+    else if (c < 0x1f)   { *dest++ = L'\\'; *dest++ = L'u';
+                          *dest++ = L'0';  *dest++ = L'0';
+                          *dest++ = c < 0x10 ? L'0' : L'1';
+                          *dest++ = (c % 16 > 10 ? L'a' + (c%16) : L'0' + (c%16)); }
+    else                                  *dest++ = c;
+  }
+  *dest = 0; //add final delim, skipped above
+  return d;
+}
+#endif
 
 /* returns 0 on success
  */
@@ -535,13 +796,21 @@ dwg_json_object(Bit_Chain *restrict dat, Dwg_Object *restrict obj)
   return DWG_ERR_INVALIDTYPE;
 }
 
-/*
-static void
-json_common_entity_handle_data(Bit_Chain *restrict dat, Dwg_Object *restrict obj)
+static int
+json_fileheader_write(Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  (void)dat; (void)obj;
+  struct Dwg_Header* _obj = &dwg->header;
+  Dwg_Object* obj = NULL;
+  int i;
+
+  RECORD(FILEHEADER); // single hash
+  KEY(version); fprintf(dat->fh, "\"%s\",\n", version_codes[dwg->header.version]);
+
+  #include "header.spec"
+
+  ENDRECORD();
+  return 0;
 }
-*/
 
 static int
 json_header_write(Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
@@ -558,20 +827,18 @@ json_header_write(Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
       ? "UTF-8"
       : "ANSI_1252";
 
-  SECTION(HEADER);
+  RECORD(HEADER); // single hash
   #include "header_variables.spec"
-  NOCOMMA;
-  ENDSEC();
+  ENDRECORD();
   return 0;
 }
 
 static int
 json_classes_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  BITCODE_BS i;
+  BITCODE_BL i;
 
-  SECTION(CLASSES);
-  LOG_TRACE("num_classes: " FORMAT_BS "\n", dwg->num_classes);
+  SECTION(CLASSES); //list of classes
   for (i=0; i < dwg->num_classes; i++)
     {
       Dwg_Class *_obj = &dwg->dwg_class[i];
@@ -584,8 +851,6 @@ json_classes_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
       FIELD_BL (num_instances, 91);
       FIELD_B  (wasazombie, 280);
       FIELD_BS (item_class_id, 281);
-      // Is-an-entity. 1f2 for entities, 1f3 for objects
-      //VALUE (281, dwg->dwg_class[i].item_class_id == 0x1F2 ? 1 : 0);
       NOCOMMA;
       ENDHASH;
     }
@@ -595,33 +860,11 @@ json_classes_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 }
 
 static int
-json_tables_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
-{
-  (void)dwg;
-
-  SECTION(TABLES);
-  //...
-  ENDSEC();
-  return 0;
-}
-
-static int
-json_blocks_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
-{
-  (void)dwg;
-
-  SECTION(BLOCKS);
-  //...
-  ENDSEC();
-  return 0;
-}
-
-static int
-json_entities_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
+json_objects_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   BITCODE_BL i;
 
-  SECTION(ENTITIES);
+  SECTION(OBJECTS);
   for (i=0; i < dwg->num_objects; i++)
     {
       Dwg_Object *obj = &dwg->object[i];
@@ -635,26 +878,35 @@ json_entities_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
   return 0;
 }
 
-/* The object map: we skip this
+/* The object map/handles section */
 static int
-json_objects_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
+json_handles_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  BITCODE_BL i;
-
-  SECTION(OBJECTS);
+  BITCODE_BL j;
+  SECTION(HANDLES);
   for (j = 0; j < dwg->num_objects; j++)
     {
+      Dwg_Object *obj = &dwg->object[j];
+      // handle => abs. offset
+      PREFIX; fprintf(dat->fh, "[ %lu, %lu ],\n", obj->handle.value, obj->address);
     }
+  NOCOMMA;
   ENDSEC();
   return 0;
 }
-*/
 
 static int
 json_preview_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
-  (void)dat; (void)dwg;
-  //...
+  Bit_Chain *_obj = (Bit_Chain*) &dwg->picture;
+  if (_obj->chain && _obj->size && _obj->size > 10)
+    {
+      KEY(THUMBNAILIMAGE); HASH;
+      PREFIX fprintf(dat->fh, "\"size\": %lu,\n", _obj->size);
+      FIELD_BINARY(chain, _obj->size, 310);
+      NOCOMMA;
+      ENDHASH;
+    }
   return 0;
 }
 
@@ -666,39 +918,39 @@ dwg_write_json(Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 
   fprintf (dat->fh, "{\n"
                      "  \"created_by\": \"%s\",\n", PACKAGE_STRING);
-  dat->bit++;
-  // a minimal header requires only $ACADVER, $HANDSEED, and then ENTITIES
-  // see https://pythonhosted.org/ezdxf/dxfinternals/filestructure.html
+  dat->bit++; // ident
+
+  if (!minimal) {
+    json_fileheader_write (dat, dwg);
+    // TODO: 3-5 sections:
+    // auxheader.spec
+    // r2004_file_header.spec
+  }
+
+  // A minimal HEADER requires only $ACADVER, $HANDSEED, and then ENTITIES
   json_header_write (dat, dwg);
 
   if (!minimal && dat->version >= R_13)
     {
-      SINCE(R_2000) {
-        if (json_classes_write (dat, dwg))
-          goto fail;
-      }
-
-      if (json_tables_write (dat, dwg))
-        goto fail;
-
-      if (json_blocks_write (dat, dwg))
+      if (json_classes_write (dat, dwg) >= DWG_ERR_CRITICAL)
         goto fail;
     }
 
-  if (json_entities_write (dat, dwg))
+  if (json_objects_write (dat, dwg) >= DWG_ERR_CRITICAL)
     goto fail;
 
-  /* only the object map
-  SINCE(R_13) {
-    if (json_objects_write (dat, dwg))
-      goto fail;
-  }*/
-
   if (!minimal && dat->version >= R_2000) {
-    if (json_preview_write (dat, dwg))
+    if (json_preview_write (dat, dwg) >= DWG_ERR_CRITICAL)
       goto fail;
   }
 
+  /* object map */
+  if (!minimal && dat->version >= R_13) {
+    if (json_handles_write (dat, dwg) >= DWG_ERR_CRITICAL)
+      goto fail;
+  }
+
+  NOCOMMA;
   dat->bit--;
   fprintf (dat->fh, "}\n");
   return 0;

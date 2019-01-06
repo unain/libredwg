@@ -17,7 +17,7 @@
  * modified by Rodrigo Rodrigues da Silva
  * modified by Till Heuschmann
  * modified by Reini Urban
- * modified by Denis Pruchkovksy
+ * modified by Denis Pruchkovsky
  */
 
 #include "spec.h"
@@ -219,6 +219,7 @@ DWG_ENTITY(ATTRIB)
         }
     }
 
+  DXF { FIELD_HANDLE (style, 5, 7); }
   SUBCLASS (AcDbAttribute)
   FIELD_T (tag, 2);
   FIELD_BS (field_length, 73);
@@ -236,7 +237,7 @@ DWG_ENTITY(ATTRIB)
     FIELD_TU (tag, 2);
     END_STRING_STREAM
   }
-  FIELD_HANDLE (style, 5, 7);
+  FIELD_HANDLE (style, 5, 0); // unexpected here in DXF
 
 DWG_ENTITY_END
 
@@ -330,17 +331,19 @@ DWG_ENTITY_END
 DWG_ENTITY(BLOCK)
 
   SUBCLASS (AcDbBlockBegin)
-  FIELD_T (name, 2);
+  BLOCK_NAME(name, 2) //special pre-R13 naming rules
 
   COMMON_ENTITY_HANDLE_DATA;
 
-  DXF {
+#ifdef IS_DXF
+  {
     Dwg_Bitcode_3RD pt = {0,0,0};
     VALUE_BL (0, 70);
     VALUE_3BD (pt, 10);
-    FIELD_TV (name, 3);
+    BLOCK_NAME(name, 3); //special pre-R13 naming rules
     VALUE_TFF ("", 1);
   }
+#endif
 
 DWG_ENTITY_END
 
@@ -378,7 +381,7 @@ DWG_ENTITY(INSERT)
 
   SINCE(R_2000)
     {
-      DXF {
+      DXF_OR_PRINT {
         FIELD_3BD_1 (scale, 41);
       }
       DECODER
@@ -486,8 +489,9 @@ DWG_ENTITY(INSERT)
         }
     }
 
-  if (FIELD_VALUE(has_attribs))
+  if (FIELD_VALUE(has_attribs)) {
     FIELD_HANDLE (seqend, 3, 0);
+  }
 
 DWG_ENTITY_END
 
@@ -505,7 +509,7 @@ DWG_ENTITY(MINSERT)
 
   SINCE(R_2000)
     {
-      DXF {
+      DXF_OR_PRINT {
         FIELD_3BD_1 (scale, 41);
       }
       DECODER
@@ -611,7 +615,9 @@ DWG_ENTITY(MINSERT)
     }
 
   if (FIELD_VALUE(has_attribs))
-    FIELD_HANDLE (seqend, 3, 0);
+    {
+      FIELD_HANDLE (seqend, 3, 0);
+    }
 
 DWG_ENTITY_END
 
@@ -636,16 +642,25 @@ DWG_ENTITY(VERTEX_2D)
   }
   SINCE(R_13)
   {
-    FIELD_RC (flag, 70);
+    DXF {
+      if (FIELD_VALUE(flag) != 0)
+        FIELD_RC (flag, 70);
+    } else {
+      FIELD_RC (flag, 70);
+    }
     FIELD_3BD (point, 10);
 
   /* Decoder and Encoder routines could be the same but then we
      wouldn't compress data when saving. So we explicitly implemented
      the encoder routine with the compression technique described in
      the spec. --Juca */
-    DXF {
-      FIELD_BD (start_width, 40);
-      FIELD_BD (end_width, 41);
+    DXF_OR_PRINT {
+      if (FIELD_VALUE(flag) != 0) {
+        if (FIELD_VALUE(start_width) != 0.0)
+          FIELD_BD (start_width, 40);
+        if (FIELD_VALUE(end_width) != 0.0)
+          FIELD_BD (end_width, 41);
+      }
     }
     DECODER
     {
@@ -678,11 +693,21 @@ DWG_ENTITY(VERTEX_2D)
         }
     }
 
-    FIELD_BD (bulge, 42);
+    DXF {
+      if (FIELD_VALUE(flag) != 0 && FIELD_VALUE(bulge) != 0.0)
+        FIELD_BD (bulge, 42);
+    } else {
+      FIELD_BD (bulge, 42);
+    }
     SINCE(R_2010) {
       FIELD_BL (id, 91);
     }
-    FIELD_BD (tangent_dir, 50);
+    DXF {
+      if (FIELD_VALUE(flag) != 0)
+        FIELD_BD (tangent_dir, 50);
+    } else {
+      FIELD_BD (tangent_dir, 50);
+    }
   }
 
   COMMON_ENTITY_HANDLE_DATA;
@@ -693,7 +718,7 @@ DWG_ENTITY_END
 DWG_ENTITY(VERTEX_3D)
 
   SUBCLASS (AcDbVertex)
-  SUBCLASS (AcDb3dPolylineVertex)
+  SUBCLASS (AcDb3dPolylineVertex) //SUBCLASS (AcDb3dVertex)?
   FIELD_RC (flag, 0);
   FIELD_3BD (point, 10);
   DXF { FIELD_RC (flag, 70); }
@@ -705,10 +730,11 @@ DWG_ENTITY_END
 /*(12)*/
 DWG_ENTITY(VERTEX_MESH)
 
-  //SUBCLASS (AcDbVertex)
-  //SUBCLASS (AcDbPolygonMeshVertex)
-  FIELD_RC (flag, 70);
+  SUBCLASS (AcDbVertex)
+  SUBCLASS (AcDbPolyFaceMeshVertex) //?
+  FIELD_RC (flag, 0);
   FIELD_3BD (point, 10);
+  DXF { FIELD_RC (flag, 70); }
 
   COMMON_ENTITY_HANDLE_DATA;
 
@@ -717,10 +743,11 @@ DWG_ENTITY_END
 /*(13)*/
 DWG_ENTITY(VERTEX_PFACE)
 
-  //SUBCLASS (AcDbVertex)
-  //SUBCLASS (AcDbPolyFaceMeshVertex)
-  FIELD_RC (flag, 70);
+  SUBCLASS (AcDbVertex)
+  SUBCLASS (AcDbPolyFaceMeshVertex)
+  FIELD_RC (flag, 0);
   FIELD_3BD (point, 10);
+  DXF { FIELD_RC (flag, 70); }
 
   COMMON_ENTITY_HANDLE_DATA;
 
@@ -729,12 +756,24 @@ DWG_ENTITY_END
 /*(14)*/
 DWG_ENTITY(VERTEX_PFACE_FACE)
 
-  //SUBCLASS (AcDbVertex)
-  //SUBCLASS (AcDbFaceRecord)
-  FIELD_BS (vertind[0], 71);
-  FIELD_BS (vertind[1], 72);
-  FIELD_BS (vertind[2], 73);
-  FIELD_BS (vertind[3], 74);
+  SUBCLASS (AcDbFaceRecord)
+  DXF {
+    BITCODE_3RD pt = { 0.0, 0.0, 0.0 };
+    VALUE_3BD (pt, 10);
+    VALUE_RC ((BITCODE_RC)128, 70);
+    FIELD_BS (vertind[0], 71);
+    if (FIELD_VALUE(vertind[1]))
+      FIELD_BS (vertind[1], 72);
+    if (FIELD_VALUE(vertind[2]))
+      FIELD_BS (vertind[2], 73);
+    if (FIELD_VALUE(vertind[3]))
+      FIELD_BS (vertind[3], 74);
+  } else {
+    FIELD_BS (vertind[0], 71);
+    FIELD_BS (vertind[1], 72);
+    FIELD_BS (vertind[2], 73);
+    FIELD_BS (vertind[3], 74);
+  }
   //TODO R13 has color_rs and linetype_rs for all vertices, not in DXF
 
   COMMON_ENTITY_HANDLE_DATA;
@@ -760,12 +799,33 @@ DWG_ENTITY(POLYLINE_2D)
   }
   SINCE (R_13)
   {
-    FIELD_BS (flag, 70);
-    FIELD_BS (curve_type, 75);
-    FIELD_BD (start_width, 40);
-    FIELD_BD (end_width, 41);
-    FIELD_BT (thickness, 39);
-    FIELD_BD (elevation, 30);
+    DXF { // i.e. has_attrib
+      KEY(has_vertex); VALUE_B (1, 66);
+    }
+    DXF {
+      if (FIELD_VALUE(flag) != 0)
+        FIELD_BS (flag, 70);
+      if (FIELD_VALUE(curve_type) != 0)
+        FIELD_BS (curve_type, 75);
+    } else {
+      FIELD_BS (flag, 70);
+      FIELD_BS (curve_type, 75);
+    }
+    DECODER_OR_ENCODER {
+      FIELD_BD (start_width, 40);
+      FIELD_BD (end_width, 41);
+      FIELD_BT (thickness, 39);
+      FIELD_BD (elevation, 30);
+    }
+    DXF {
+      BITCODE_3RD pt = { 0.0, 0.0, 0.0 };
+      pt.z = FIELD_VALUE(elevation);
+      if (FIELD_VALUE(thickness != 0.0))
+        FIELD_BT (thickness, 39);
+      KEY(elevation); VALUE_3BD (pt, 10);
+      FIELD_BD (start_width, 40);
+      FIELD_BD (end_width, 41);
+    }
     FIELD_BE (extrusion, 210);
 
     SINCE(R_2004) {
@@ -796,13 +856,12 @@ DWG_ENTITY_END
 DWG_ENTITY(POLYLINE_3D)
 
   SUBCLASS (AcDb3dPolyline)
-  FIELD_RC (flag, 0); // => 70, 75 TODO for dxf
-  FIELD_RC (flag2, 0);
+  FIELD_RC (curve_type, 75);
+  FIELD_RC (flag, 70);
 
   SINCE(R_2004) {
     FIELD_BL (num_owned, 0);
   }
-
   COMMON_ENTITY_HANDLE_DATA;
 
   VERSIONS(R_13, R_2000)
@@ -901,7 +960,7 @@ DWG_ENTITY(LINE)
     }
   SINCE(R_2000)
     {
-      DXF
+      DXF_OR_PRINT
         {
           FIELD_3DPOINT (start, 10);
           FIELD_3DPOINT (end, 11);
@@ -966,11 +1025,43 @@ DWG_ENTITY_END
         if (FIELD_VALUE(class_version) > 10) \
           return DWG_ERR_VALUEOUTOFBOUNDS; \
       } \
-    FIELD_3BD (extrusion, 210); \
+    DXF { \
+      FIELD_VALUE(blockname) = dwg_dim_blockname(dwg,obj); \
+      FIELD_BE (extrusion, 210); \
+      FIELD_T (blockname, 2); \
+      FIELD_3BD (def_pt, 10); \
+    } else { \
+      FIELD_3BD (extrusion, 210); \
+    } \
     FIELD_2RD (text_midpt, 11); \
     FIELD_BD (elevation, 31); \
-    FIELD_RC (flag1, 70); \
-    FIELD_T (user_text, 1); \
+    DXF { \
+      FIELD_RC (flag, 70); \
+    } else { \
+      FIELD_RC (flag1, 0); \
+    } \
+    DECODER { \
+      BITCODE_RC flag = FIELD_VALUE(flag1); \
+      flag = (flag & 1) ? flag & 0x7F : flag | 0x80; /* clear bit 7 */ \
+      flag = (flag & 2) ? flag | 0x20 : flag & 0xDF; /* set bit 5 */ \
+      flag &= 0xF8; /* clear the 3 flag bits, and set them: */ \
+      if (_obj->flag == DWG_TYPE_DIMENSION_ALIGNED)       flag |= 1; \
+      else if (_obj->flag == DWG_TYPE_DIMENSION_ANG2LN)   flag |= 2; \
+      else if (_obj->flag == DWG_TYPE_DIMENSION_DIAMETER) flag |= 3; \
+      else if (_obj->flag == DWG_TYPE_DIMENSION_RADIUS)   flag |= 4; \
+      else if (_obj->flag == DWG_TYPE_DIMENSION_ANG3PT)   flag |= 5; \
+      else if (_obj->flag == DWG_TYPE_DIMENSION_ORDINATE) flag |= 6; \
+      FIELD_VALUE(flag) = flag; \
+    } \
+    DXF { \
+      if (dat->from_version >= R_2007) { \
+        FIELD_TU (user_text, 1); \
+      } else if (_obj->user_text && strlen(_obj->user_text)) { \
+        FIELD_TV (user_text, 1); \
+      } \
+    } else { \
+      FIELD_T (user_text, 1); \
+    } \
     FIELD_BD (text_rotation, 53); \
     FIELD_BD (horiz_dir, 51); \
     FIELD_3BD_1 (ins_scale, 41); \
@@ -988,8 +1079,10 @@ DWG_ENTITY_END
         FIELD_B (flip_arrow1, 74); \
         FIELD_B (flip_arrow2, 75); \
       } \
-    FIELD_2RD (clone_ins_pt, 12);
-
+    FIELD_2RD (clone_ins_pt, 12); \
+    DXF { UNTIL(R_2007) { \
+      FIELD_HANDLE (dimstyle, 5, 3); \
+    } }
 
 /*(20)*/
 DWG_ENTITY(DIMENSION_ORDINATE)
@@ -997,10 +1090,18 @@ DWG_ENTITY(DIMENSION_ORDINATE)
   SUBCLASS (AcDbDimension)
   DIMENSION_COMMON_DECODE;
   SUBCLASS (AcDbOrdinateDimension)
-  FIELD_3BD (ucsorigin_pt, 10);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
   FIELD_3BD (feature_location_pt, 13);
   FIELD_3BD (leader_endpt, 14);
   FIELD_RC (flag2, 70);
+  DECODER {
+    BITCODE_RC flag = FIELD_VALUE(flag);
+    flag = (FIELD_VALUE(flag2) & 1)
+            ? flag | 0x80 : flag & 0xBF; /* set bit 6 */
+    FIELD_VALUE(flag) = flag;
+  }
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
@@ -1028,8 +1129,8 @@ DWG_ENTITY(DIMENSION_LINEAR)
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1042,14 +1143,16 @@ DWG_ENTITY(DIMENSION_ALIGNED)
   SUBCLASS (AcDbAlignedDimension)
   FIELD_3BD (_13_pt, 13);
   FIELD_3BD (_14_pt, 14);
-  FIELD_3BD (def_pt, 10);
-  FIELD_BD (ext_line_rotation, 52);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
+  FIELD_BD (ext_line_rotation, 0); /* 52 */
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1060,7 +1163,9 @@ DWG_ENTITY(DIMENSION_ANG3PT)
   SUBCLASS (AcDbDimension)
   DIMENSION_COMMON_DECODE;
   SUBCLASS (AcDb3PointAngularDimension)
-  FIELD_3BD (def_pt, 10);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
   FIELD_3BD (_13_pt, 13);
   FIELD_3BD (_14_pt, 14);
   FIELD_3BD (first_arc_pt, 15);
@@ -1068,8 +1173,8 @@ DWG_ENTITY(DIMENSION_ANG3PT)
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1084,13 +1189,15 @@ DWG_ENTITY(DIMENSION_ANG2LN)
   FIELD_3BD (_13_pt, 13);
   FIELD_3BD (_14_pt, 14);
   FIELD_3BD (first_arc_pt, 15);
-  FIELD_3BD (def_pt, 10);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1101,15 +1208,17 @@ DWG_ENTITY(DIMENSION_RADIUS)
   SUBCLASS (AcDbDimension)
   DIMENSION_COMMON_DECODE;
   SUBCLASS (AcDbRadialDimension)
-  FIELD_3BD (def_pt, 10);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
   FIELD_3BD (first_arc_pt, 15);
   FIELD_BD (leader_len, 40);
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1121,14 +1230,16 @@ DWG_ENTITY(DIMENSION_DIAMETER)
   DIMENSION_COMMON_DECODE;
   SUBCLASS (AcDbDiametricDimension)
   FIELD_3BD (first_arc_pt, 15);
-  FIELD_3BD (def_pt, 10);
+  DECODER_OR_ENCODER {
+    FIELD_3BD (def_pt, 10);
+  }
   FIELD_BD (leader_len, 40);
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007)
     {
-      FIELD_HANDLE (dimstyle, 5, 3);
-      FIELD_HANDLE (block, 5, 2);
+      FIELD_HANDLE (dimstyle, 5, 0);
+      FIELD_HANDLE (block, 5, 0);
     }
 
 DWG_ENTITY_END
@@ -1167,7 +1278,7 @@ DWG_ENTITY(_3DFACE)
     {
       FIELD_B (has_no_flags, 0);
 
-      DXF
+      DXF_OR_PRINT
         {
           FIELD_3DPOINT (corner1, 10);
         }
@@ -1316,6 +1427,7 @@ DWG_ENTITY_END
 /* (33/4) */
 DWG_ENTITY(SHAPE)
 
+  DXF { FIELD_HANDLE (style, 5, 7); }
   SUBCLASS (AcDbShape)
   PRE(R_13) {
     FIELD_HANDLE (style, 5, 0);
@@ -1490,20 +1602,22 @@ DWG_ENTITY(SPLINE)
   if (FIELD_VALUE(scenario) & 1) {
     FIELD_VECTOR(knots, BD, num_knots, 40)
     REPEAT(num_ctrl_pts, ctrl_pts, Dwg_SPLINE_control_point)
-      {
-        FIELD_3BD (ctrl_pts[rcount1], 10);
+    REPEAT_BLOCK
+        SUB_FIELD_3BD_inl (ctrl_pts[rcount1], xyz, 10);
         if (!FIELD_VALUE(weighted))
           FIELD_VALUE(ctrl_pts[rcount1].w) = 0; // skipped when encoding
         else
-          FIELD_BD (ctrl_pts[rcount1].w, 41);
-      }
+          SUB_FIELD_BD (ctrl_pts[rcount1], w, 41);
+    END_REPEAT_BLOCK
+    SET_PARENT_OBJ(ctrl_pts);
     END_REPEAT(ctrl_pts);
   }
   if (FIELD_VALUE(scenario) & 2) {
     REPEAT(num_fit_pts, fit_pts, Dwg_SPLINE_point)
-      {
-        FIELD_3BD (fit_pts[rcount1], 11);
-      }
+    REPEAT_BLOCK
+        SUB_FIELD_3BD_inl (fit_pts[rcount1], xyz, 11);
+    END_REPEAT_BLOCK
+    SET_PARENT_OBJ(fit_pts);
     END_REPEAT(fit_pts);
   }
 
@@ -1647,26 +1761,29 @@ static int decode_3dsolid(Bit_Chain* dat, Bit_Chain* hdl_dat,
             {
               FIELD_BL (num_wires, 0);
               REPEAT(num_wires, wires, Dwg_3DSOLID_wire)
-                {
+              REPEAT_BLOCK
                   PARSE_WIRE_STRUCT(wires[rcount1])
-                }
+              END_REPEAT_BLOCK
+              SET_PARENT_OBJ(wires)
               END_REPEAT(wires);
               FIELD_BL (num_silhouettes, 0);
               REPEAT(num_silhouettes, silhouettes, Dwg_3DSOLID_silhouette)
-                {
-                  FIELD_BL (silhouettes[rcount1].vp_id, 0);
-                  FIELD_3BD (silhouettes[rcount1].vp_target, 0);
-                  FIELD_3BD (silhouettes[rcount1].vp_dir_from_target, 0);
-                  FIELD_3BD (silhouettes[rcount1].vp_up_dir, 0);
-                  FIELD_B (silhouettes[rcount1].vp_perspective, 0);
-                  FIELD_BL (silhouettes[rcount1].num_wires, 0);
+              REPEAT_BLOCK
+                  SUB_FIELD_BL (silhouettes[rcount1], vp_id, 0);
+                  SUB_FIELD_3BD (silhouettes[rcount1], vp_target, 0);
+                  SUB_FIELD_3BD (silhouettes[rcount1], vp_dir_from_target, 0);
+                  SUB_FIELD_3BD (silhouettes[rcount1], vp_up_dir, 0);
+                  SUB_FIELD_B (silhouettes[rcount1], vp_perspective, 0);
+                  SUB_FIELD_BL (silhouettes[rcount1], num_wires, 0);
                   REPEAT2(silhouettes[rcount1].num_wires, silhouettes[rcount1].wires,
                           Dwg_3DSOLID_wire)
-                    {
+                  REPEAT_BLOCK
                       PARSE_WIRE_STRUCT(silhouettes[rcount1].wires[rcount2])
-                    }
+                  END_REPEAT_BLOCK
+                  SET_PARENT_OBJ(silhouettes[rcount1].wires)
                   END_REPEAT(silhouettes[rcount1].wires);
-                }
+              END_REPEAT_BLOCK
+              SET_PARENT_OBJ(silhouettes)
               END_REPEAT(silhouettes);
             }
         }
@@ -1729,26 +1846,28 @@ static int free_3dsolid(Dwg_Object* obj, Dwg_Entity_3DSOLID* _obj)
   FREE_IF(FIELD_VALUE(acis_data));
 
   REPEAT(num_wires, wires, Dwg_3DSOLID_wire)
-  {
+  REPEAT_BLOCK
     PARSE_WIRE_STRUCT(wires[rcount1])
-  }
+  END_REPEAT_BLOCK
+  SET_PARENT_OBJ(wires)
   END_REPEAT(wires);
 
   REPEAT(num_silhouettes, silhouettes, Dwg_3DSOLID_silhouette)
-  {
-    FIELD_BL (silhouettes[rcount1].vp_id, 0);
-    FIELD_3BD (silhouettes[rcount1].vp_target, 0);
-    FIELD_3BD (silhouettes[rcount1].vp_dir_from_target, 0);
-    FIELD_3BD (silhouettes[rcount1].vp_up_dir, 0);
-    FIELD_B (silhouettes[rcount1].vp_perspective, 0);
-    FIELD_BL (silhouettes[rcount1].num_wires, 0);
+  REPEAT_BLOCK
+    SUB_FIELD_BL (silhouettes[rcount1], vp_id, 0);
+    SUB_FIELD_3BD (silhouettes[rcount1], vp_target, 0);
+    SUB_FIELD_3BD (silhouettes[rcount1], vp_dir_from_target, 0);
+    SUB_FIELD_3BD (silhouettes[rcount1], vp_up_dir, 0);
+    SUB_FIELD_B (silhouettes[rcount1], vp_perspective, 0);
+    SUB_FIELD_BL (silhouettes[rcount1], num_wires, 0);
     REPEAT2(silhouettes[rcount1].num_wires, silhouettes[rcount1].wires,
             Dwg_3DSOLID_wire)
-      {
-        PARSE_WIRE_STRUCT(silhouettes[rcount1].wires[rcount2])
-      }
+    REPEAT_BLOCK
+       PARSE_WIRE_STRUCT(silhouettes[rcount1].wires[rcount2])
+    END_REPEAT_BLOCK
     END_REPEAT(silhouettes[rcount1].wires);
-  }
+  END_REPEAT_BLOCK
+  SET_PARENT_OBJ(silhouettes)
   END_REPEAT(silhouettes);
 
   COMMON_ENTITY_HANDLE_DATA;
@@ -1759,7 +1878,7 @@ static int free_3dsolid(Dwg_Object* obj, Dwg_Entity_3DSOLID* _obj)
 #endif
 
 #define ACTION_3DSOLID \
-  DXF { \
+  DXF_OR_PRINT { \
     DXF_3DSOLID \
   } \
   DECODER { \
@@ -1778,13 +1897,13 @@ DWG_ENTITY_END
 
 /*(38)*/
 DWG_ENTITY(_3DSOLID)
-  SUBCLASS (AcDb3dSolid)
+  SUBCLASS (AcDbModelerGeometry)
   ACTION_3DSOLID;
 DWG_ENTITY_END
 
 /*(39)*/
 DWG_ENTITY(BODY)
-  SUBCLASS (AcDbBody)
+  SUBCLASS (AcDbModelerGeometry)
   ACTION_3DSOLID;
 DWG_ENTITY_END
 
@@ -1816,10 +1935,14 @@ DWG_ENTITY_END
 DWG_OBJECT(DICTIONARY)
 
 #ifdef IS_DXF
-  FIELD_HANDLE (parenthandle, 4, 330);
+  FIELD_HANDLE (ownerhandle, 4, 330);
   SUBCLASS (AcDbDictionary)
   SINCE(R_2000)
+  {
+    if (FIELD_VALUE(hard_owner))
+      FIELD_RC (hard_owner, 280);
     FIELD_BS (cloning, 281);
+  }
 #else
   FIELD_BL (numitems, 0);
   VERSION(R_14)
@@ -1845,8 +1968,9 @@ DWG_OBJECT(DICTIONARY)
     if (FIELD_VALUE(itemhandles) && FIELD_VALUE(text)) {
       REPEAT(numitems, text, T)
       {
+        int dxf = FIELD_VALUE(hard_owner) & 1 ? 360 : 350;
         FIELD_T (text[rcount1], 3);
-        VALUE_HANDLE (_obj->itemhandles[rcount1], 2, 350);
+        VALUE_HANDLE (_obj->itemhandles[rcount1], itemhandles, 2, dxf);
       }
       END_REPEAT(text)
     }
@@ -1855,7 +1979,7 @@ DWG_OBJECT(DICTIONARY)
 #endif
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   SINCE(R_2000)
@@ -1869,10 +1993,14 @@ DWG_OBJECT_END
 DWG_OBJECT(DICTIONARYWDFLT)
 
 #ifdef IS_DXF
-  FIELD_HANDLE (parenthandle, 4, 330);
+  FIELD_HANDLE (ownerhandle, 4, 330);
   SUBCLASS (AcDbDictionary)
   SINCE(R_2000)
+  {
+    if (FIELD_VALUE(hard_owner))
+      FIELD_RC (hard_owner, 280);
     FIELD_BS (cloning, 281);
+  }
 #else
   FIELD_BL (numitems, 0);
   VERSION(R_14)
@@ -1897,8 +2025,9 @@ DWG_OBJECT(DICTIONARYWDFLT)
     if (FIELD_VALUE(itemhandles) && FIELD_VALUE(text)) {
       REPEAT(numitems, text, T)
       {
+        int dxf = FIELD_VALUE(hard_owner) & 1 ? 360 : 350;
         FIELD_T (text[rcount1], 3);
-        VALUE_HANDLE (_obj->itemhandles[rcount1], 2, 350);
+        VALUE_HANDLE (_obj->itemhandles[rcount1], itemhandles, 2, dxf);
       }
       END_REPEAT(text)
     }
@@ -1907,7 +2036,7 @@ DWG_OBJECT(DICTIONARYWDFLT)
 #endif
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   SINCE(R_2000)
@@ -1941,6 +2070,9 @@ DWG_ENTITY_END
 /*(44)*/
 DWG_ENTITY(MTEXT)
 
+  DXF { UNTIL(R_2007) {
+    FIELD_HANDLE (style, 5, 7);
+  } }
   SUBCLASS (AcDbMText)
   FIELD_3BD (insertion_pt, 10);
   FIELD_3BD (extrusion, 210);
@@ -1959,7 +2091,7 @@ DWG_ENTITY(MTEXT)
   FIELD_T (text, 1); // or 3 if >250
   /* doc error:
   UNTIL(R_2007) {
-    FIELD_HANDLE (style, 5, 7);
+    FIELD_HANDLE (style, 5, 0);
   }
   */
 
@@ -2017,7 +2149,7 @@ DWG_ENTITY(MTEXT)
 
   COMMON_ENTITY_HANDLE_DATA;
   UNTIL(R_2007) {
-    FIELD_HANDLE (style, 5, 7);
+    FIELD_HANDLE (style, 5, 0);
   }
 
 DWG_ENTITY_END
@@ -2082,6 +2214,7 @@ DWG_ENTITY_END
 DWG_ENTITY(TOLERANCE)
 
   SUBCLASS (AcDbFcf)   // for Feature Control Frames
+  DXF { FIELD_HANDLE (dimstyle, 5, 3); }
   VERSIONS(R_13, R_14)
     {
       FIELD_BS (unknown_short, 0); //spec-typo? Spec says S instead of BS.
@@ -2091,7 +2224,8 @@ DWG_ENTITY(TOLERANCE)
 
   FIELD_3DPOINT (ins_pt, 10);
   FIELD_3DPOINT (x_direction, 11);
-  FIELD_3DPOINT (extrusion, 210);
+  DXF  { FIELD_BE (extrusion, 210); }
+  else { FIELD_3DPOINT (extrusion, 210); }
   FIELD_T (text_string, 1);
 
   COMMON_ENTITY_HANDLE_DATA;
@@ -2113,35 +2247,37 @@ DWG_ENTITY(MLINE)
   FIELD_BS (num_verts, 72);
 
   REPEAT(num_verts, verts, Dwg_MLINE_vertex)
-    {
-      FIELD_3DPOINT (verts[rcount1].vertex, 10);
-      FIELD_3DPOINT (verts[rcount1].vertex_direction, 210);
-      FIELD_3DPOINT (verts[rcount1].miter_direction, 11);
+  REPEAT_BLOCK
+      SUB_FIELD_3DPOINT (verts[rcount1], vertex, 10);
+      SUB_FIELD_3DPOINT (verts[rcount1], vertex_direction, 210);
+      SUB_FIELD_3DPOINT (verts[rcount1], miter_direction, 11);
       FIELD_VALUE (verts[rcount1].num_lines) = FIELD_VALUE (num_lines);
 
       REPEAT2_C(num_lines, verts[rcount1].lines, Dwg_MLINE_line)
-        {
-          FIELD_BS (verts[rcount1].lines[rcount2].num_segparms, 74);
-          REPEAT3(verts[rcount1].lines[rcount2].num_segparms,
-                  verts[rcount1].lines[rcount2].segparms,
-                  BITCODE_BD)
-            {
-              FIELD_BD (verts[rcount1].lines[rcount2].segparms[rcount3], 41);
-            }
-          END_REPEAT(verts[rcount1].lines[rcount2].segparms);
+      REPEAT_BLOCK
+          SUB_FIELD_BS (verts[rcount1].lines[rcount2], num_segparms, 74);
+          FIELD_VECTOR (verts[rcount1].lines[rcount2].segparms, BD, verts[rcount1].lines[rcount2].num_segparms, 41)
+          //REPEAT3(verts[rcount1].lines[rcount2].num_segparms,
+          //        verts[rcount1].lines[rcount2].segparms,
+          //        BITCODE_BD)
+          //REPEAT_BLOCK
+          //  SUB_FIELD_BD (verts[rcount1].lines[rcount2], segparms[rcount3], 41);
+          //END_REPEAT_BLOCK
+          //END_REPEAT(verts[rcount1].lines[rcount2].segparms);
 
-          FIELD_BS (verts[rcount1].lines[rcount2].num_areafillparms, 75);
-          REPEAT3(verts[rcount1].lines[rcount2].num_areafillparms,
-                  verts[rcount1].lines[rcount2].areafillparms,
-                  BITCODE_BD)
-            {
-              FIELD_BD (verts[rcount1].lines[rcount2].areafillparms[rcount3], 42);
-            }
-          END_REPEAT(verts[rcount1].lines[rcount2].areafillparms);
-        }
+          SUB_FIELD_BS (verts[rcount1].lines[rcount2], num_areafillparms, 75);
+          FIELD_VECTOR (verts[rcount1].lines[rcount2].areafillparms, BD, verts[rcount1].lines[rcount2].num_areafillparms, 42)
+          //REPEAT3(verts[rcount1].lines[rcount2].num_areafillparms,
+          //        verts[rcount1].lines[rcount2].areafillparms,
+          //        BITCODE_BD)
+          //REPEAT_BLOCK
+          //  SUB_FIELD_BD (verts[rcount1].lines[rcount2], areafillparms[rcount3], 42);
+          //END_REPEAT_BLOCK
+          //END_REPEAT(verts[rcount1].lines[rcount2].areafillparms);
+      END_REPEAT_BLOCK
       SET_PARENT(verts[rcount1].lines, &_obj->verts[rcount1])
       END_REPEAT(verts[rcount1].lines);
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(verts)
   END_REPEAT(verts);
 
@@ -2174,9 +2310,12 @@ DWG_OBJECT_END
 /* (49/1) */
 DWG_OBJECT(BLOCK_HEADER)
 
+  //DXF: the name must be from the block_entity!
   COMMON_TABLE_FLAGS(block_control, Block)
   DXF {
-    FIELD_HANDLE (layout_handle, 5, 340);
+    // not allowed to be skipped, can be 0
+    VALUE_HANDLE (_obj->layout_handle, layout_handle, 5, 340);
+    // The DXF TABLE.BLOCK_RECORD only has this. More later in the BLOCKS section.
     return 0;
   }
 
@@ -2237,7 +2376,11 @@ DWG_OBJECT(BLOCK_HEADER)
         }
       else
         {
+#ifndef IS_JSON
           FIELD_TF (preview_data, FIELD_VALUE(preview_data_size), 310);
+#else
+          FIELD_BINARY (preview_data, FIELD_VALUE(preview_data_size), 310);
+#endif
         }
     }
 
@@ -2282,7 +2425,7 @@ DWG_OBJECT(BLOCK_HEADER)
       if (FIELD_VALUE(num_inserts) && FIELD_VALUE(num_inserts) < 0xf00000) {
         HANDLE_VECTOR(insert_handles, num_inserts, ANYCODE, 0);
       }
-      FIELD_HANDLE (layout_handle, 5, 0);
+      FIELD_HANDLE (layout_handle, 5, 340);
     }
 
 DWG_OBJECT_END
@@ -2335,17 +2478,18 @@ DWG_OBJECT(LAYER)
     int flag = FIELD_VALUE(flag);
     FIELD_BS (flag, 0); // 70,290,370
     // contains frozen (1 bit), on (2 bit), frozen by default in new viewports (4 bit),
-    // locked (8 bit), plotting flag (16 bit), and lineweight (mask with 0x03E0)
+    // locked (8 bit), plotting flag (16 bit), and linewt (mask with 0x03E0)
     //FIELD_VALUE(flag) = (BITCODE_RC)FIELD_VALUE(flag_s) & 0xff;
     FIELD_VALUE(frozen) = flag & 1;
     FIELD_VALUE(on) = flag & 2;
     FIELD_VALUE(frozen_in_new) = flag & 4;
     FIELD_VALUE(locked) = flag & 8;
     FIELD_VALUE(plotflag) = flag & (1<<15) ? 1 : 0;
-    FIELD_VALUE(linewidth) = (flag & 0x03E0) >> 5;
-    DXF {
+    FIELD_VALUE(linewt) = (flag & 0x03E0) >> 5;
+    DXF_OR_PRINT {
+      int lw = dxf_cvt_lweight(FIELD_VALUE(linewt));
       FIELD_B(plotflag, 290);
-      FIELD_RS(linewidth, 370);
+      KEY(linewt); VALUE_RC((signed char)lw, 370);
     }
   }
   FIELD_CMC (color, 62,420);
@@ -2424,6 +2568,7 @@ DWG_OBJECT(STYLE)
       SINCE(R_2007) {
         s = bit_convert_TU((BITCODE_TU)_obj->font_name);
         strncpy(_buf, s, 255);
+        free (s);
       } else {
         strncpy(_buf, _obj->font_name, 255);
       }
@@ -2483,7 +2628,7 @@ DWG_OBJECT(LTYPE)
   }
   FIELD_RC (num_dashes, 73);
   REPEAT_C(num_dashes, dash, Dwg_LTYPE_dash)
-    {
+  REPEAT_BLOCK
       PRE(R_13)
       {
         FIELD_RD (dash[rcount1].length, 49);
@@ -2501,17 +2646,17 @@ DWG_OBJECT(LTYPE)
       }
       LATER_VERSIONS
       {
-        FIELD_BD (dash[rcount1].length, 49);
-        FIELD_BS (dash[rcount1].complex_shapecode, 74);
-        FIELD_RD (dash[rcount1].x_offset, 44);
-        FIELD_RD (dash[rcount1].y_offset, 45);
-        FIELD_BD (dash[rcount1].scale, 46);
-        FIELD_BD (dash[rcount1].rotation, 50);
-        FIELD_BS (dash[rcount1].shape_flag, 75);
+        SUB_FIELD_BD (dash[rcount1],length, 49);
+        SUB_FIELD_BS (dash[rcount1],complex_shapecode, 74);
+        SUB_FIELD_RD (dash[rcount1],x_offset, 44);
+        SUB_FIELD_RD (dash[rcount1],y_offset, 45);
+        SUB_FIELD_BD (dash[rcount1],scale, 46);
+        SUB_FIELD_BD (dash[rcount1],rotation, 50);
+        SUB_FIELD_BS (dash[rcount1],shape_flag, 75);
         if (FIELD_VALUE(dash[rcount1].shape_flag) & 0x2)
           FIELD_VALUE(text_area_is_present) = 1;
       }
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(dash)
   END_REPEAT(dash);
 
@@ -2726,7 +2871,8 @@ DWG_OBJECT(VPORT)
 
   COMMON_TABLE_FLAGS(vport_control, Viewport)
 
-  DXF { // has a different order of fields
+ DXF { // has a different order of fields
+
   FIELD_2RD (lower_left, 10);
   FIELD_2RD (upper_right, 11);
   FIELD_2RD (VIEWCTR, 12);
@@ -2784,8 +2930,7 @@ DWG_OBJECT(VPORT)
     FIELD_BS (grid_flags, 60);
     FIELD_BS (grid_major, 61);
     FIELD_HANDLE (background_handle, 4, 332);
-    //FIELD_HANDLE (sun_handle, 3, 361); //ODA bug
-    FIELD_HANDLE (shade_plot_handle, 5, 333);
+    FIELD_HANDLE (sun_handle, 5, 361); //was shade_plot_handle
 
     IF_ENCODE_FROM_EARLIER {
       FIELD_VALUE(use_default_lights) = 1;
@@ -2912,8 +3057,7 @@ DWG_OBJECT(VPORT)
     {
       FIELD_HANDLE (background_handle, 4, 332); //soft ptr
       FIELD_HANDLE (visual_style_handle, 5, 348); //hard ptr
-      //FIELD_HANDLE (sun_handle, 3, 361); //ODA bug
-      FIELD_HANDLE (shade_plot_handle, 3, 333); //hard owner
+      FIELD_HANDLE (sun_handle, 3, 361); //hard owner
     }
 
   SINCE(R_2000)
@@ -3271,7 +3415,7 @@ DWG_OBJECT_END
 /*(72)*/
 DWG_OBJECT(GROUP)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbGroup)
   FIELD_T (name, 300);
   FIELD_BS (unnamed, 70);
@@ -3279,7 +3423,7 @@ DWG_OBJECT(GROUP)
   FIELD_BL (num_handles, 0);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   HANDLE_VECTOR(group_entries, num_handles, 5, 340);
@@ -3289,10 +3433,10 @@ DWG_OBJECT_END
 /* (73) */
 DWG_OBJECT(MLINESTYLE)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbMlineStyle)
-  FIELD_T (entry_name, 2);
-  FIELD_T (desc, 3);
+  FIELD_T (name, 2);
+  FIELD_T (desc, 0);
   FIELD_BS (flag, 70);  /*!< 1 = Fill on,
                              2 = Display miters,
                              16 = Start square end (line) cap,
@@ -3301,6 +3445,7 @@ DWG_OBJECT(MLINESTYLE)
                              256 = End square (line) cap,
                              512 = End inner arcs cap,
                              1024 = End round (outer arcs) cap */
+  DXF { FIELD_T (desc, 3); }
   FIELD_CMC (fill_color, 62,420); /*!< default 256 */
 #ifdef IS_DXF
   // 0 - 90
@@ -3316,10 +3461,10 @@ DWG_OBJECT(MLINESTYLE)
 #endif
   FIELD_RC (num_lines, 71);
   REPEAT_C(num_lines, lines, Dwg_MLINESTYLE_line)
-  {
-    FIELD_BD (lines[rcount1].offset, 49);
+  REPEAT_BLOCK
+    SUB_FIELD_BD (lines[rcount1], offset, 49);
 #ifndef IS_FREE
-    FIELD_CMC (lines[rcount1].color, 62,420); /*!< default: 0 */
+    SUB_FIELD_CMC (lines[rcount1], color, 62,420); /*!< default: 0 */
 #endif
     PRE(R_2018)
     {
@@ -3333,19 +3478,19 @@ DWG_OBJECT(MLINESTYLE)
                     VALUE_TFF("", 6); break;
         }
 #else
-        FIELD_BS (lines[rcount1].ltindex, 6);
+        SUB_FIELD_BS (lines[rcount1], ltindex, 6);
 #endif
     }
     SINCE(R_2018)
     {
-      FIELD_HANDLE (lines[rcount1].ltype, 5, 6);
+      SUB_FIELD_HANDLE (lines[rcount1], ltype, 5, 6);
     }
-  }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(lines)
   END_REPEAT(lines);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -3354,11 +3499,11 @@ DWG_OBJECT_END
 //pg.135
 DWG_OBJECT(DICTIONARYVAR)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (DictionaryVariables)
   FIELD_RC (intval, 280);
   FIELD_T (str, 1);
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -3390,18 +3535,24 @@ DWG_ENTITY(HATCH)
           return DWG_ERR_VALUEOUTOFBOUNDS;
         }
       REPEAT(num_colors, colors, Dwg_HATCH_Color)
-        {
-          FIELD_BD (colors[rcount1].unknown_double, 463); //value
-          FIELD_BS (colors[rcount1].unknown_short, 0);
-          FIELD_BLx (colors[rcount1].rgb_color, 63); // 63 for color as ACI. 421 for rgb
-          FIELD_RC (colors[rcount1].ignored_color_byte, 0);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_BD (colors[rcount1], unknown_double, 463); //value
+          SUB_FIELD_BS (colors[rcount1], unknown_short, 0);
+          SUB_FIELD_BLx (colors[rcount1], rgb_color, 63); // 63 for color as ACI. 421 for rgb
+          SUB_FIELD_RC (colors[rcount1], ignored_color_byte, 0);
+      END_REPEAT_BLOCK
       SET_PARENT_OBJ(colors)
       END_REPEAT(colors);
       FIELD_T (gradient_name, 470);
     }
 
-  FIELD_BD (elevation, 30);
+  DXF {
+    BITCODE_3RD pt = { 0.0, 0.0, 0.0 };
+    pt.z = FIELD_VALUE(elevation);
+    KEY(elevation); VALUE_3BD (pt, 10);
+  } else {
+    FIELD_BD (elevation, 30);
+  }
   FIELD_3BD (extrusion, 210);
   FIELD_T (name, 2); //default: SOLID
   FIELD_B (solid_fill, 70); //default: 1, pattern_fill: 0
@@ -3413,59 +3564,62 @@ DWG_ENTITY(HATCH)
       return DWG_ERR_VALUEOUTOFBOUNDS;
     }
   REPEAT(num_paths, paths, Dwg_HATCH_Path)
-    {
-      FIELD_BL (paths[rcount1].flag, 92);
+  REPEAT_BLOCK
+      SUB_FIELD_BL (paths[rcount1], flag, 92);
       if (!(FIELD_VALUE(paths[rcount1].flag) & 2))
         {
-          FIELD_BL (paths[rcount1].num_segs_or_paths, 93);
+          SUB_FIELD_BL (paths[rcount1], num_segs_or_paths, 93);
           if (FIELD_VALUE(paths[rcount1].num_segs_or_paths > 10000))
             {
               LOG_ERROR("Invalid HATCH.num_segs_or_paths " FORMAT_BL,
                         _obj->paths[rcount1].num_segs_or_paths);
-              #ifdef IS_FREE
-                END_REPEAT(paths);
-              #endif
+#ifdef IS_JSON
+              NOCOMMA; ENDHASH;
+#endif
+              END_REPEAT(paths);
               return DWG_ERR_VALUEOUTOFBOUNDS;
             }
           REPEAT2(paths[rcount1].num_segs_or_paths, paths[rcount1].segs,
                   Dwg_HATCH_PathSeg)
-            {
-              FIELD_RC (paths[rcount1].segs[rcount2].type_status, 72);
+          REPEAT_BLOCK
+              SUB_FIELD_RC (paths[rcount1].segs[rcount2],type_status, 72);
               switch (FIELD_VALUE(paths[rcount1].segs[rcount2].type_status))
                 {
                     case 1: /* LINE */
-                      FIELD_2RD (paths[rcount1].segs[rcount2].first_endpoint, 10);
-                      FIELD_2RD (paths[rcount1].segs[rcount2].second_endpoint, 11);
+                      SUB_FIELD_2RD (paths[rcount1].segs[rcount2],first_endpoint, 10);
+                      SUB_FIELD_2RD (paths[rcount1].segs[rcount2],second_endpoint, 11);
                       break;
                     case 2: /* CIRCULAR ARC */
-                      FIELD_2RD (paths[rcount1].segs[rcount2].center, 10);
-                      FIELD_BD (paths[rcount1].segs[rcount2].radius, 40);
-                      FIELD_BD (paths[rcount1].segs[rcount2].start_angle, 50);
-                      FIELD_BD (paths[rcount1].segs[rcount2].end_angle, 51);
-                      FIELD_B (paths[rcount1].segs[rcount2].is_ccw, 73);
+                      SUB_FIELD_2RD (paths[rcount1].segs[rcount2], center, 10);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], radius, 40);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], start_angle, 50);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], end_angle, 51);
+                      SUB_FIELD_B (paths[rcount1].segs[rcount2], is_ccw, 73);
                       break;
                     case 3: /* ELLIPTICAL ARC */
-                      FIELD_2RD (paths[rcount1].segs[rcount2].center, 10);
-                      FIELD_2RD (paths[rcount1].segs[rcount2].endpoint, 11);
-                      FIELD_BD (paths[rcount1].segs[rcount2].minor_major_ratio, 40);
-                      FIELD_BD (paths[rcount1].segs[rcount2].start_angle, 50);
-                      FIELD_BD (paths[rcount1].segs[rcount2].end_angle, 51);
-                      FIELD_B (paths[rcount1].segs[rcount2].is_ccw, 73);
+                      SUB_FIELD_2RD (paths[rcount1].segs[rcount2], center, 10);
+                      SUB_FIELD_2RD (paths[rcount1].segs[rcount2], endpoint, 11);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], minor_major_ratio, 40);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], start_angle, 50);
+                      SUB_FIELD_BD (paths[rcount1].segs[rcount2], end_angle, 51);
+                      SUB_FIELD_B (paths[rcount1].segs[rcount2], is_ccw, 73);
                       break;
                     case 4: /* SPLINE */
-                      FIELD_BL (paths[rcount1].segs[rcount2].degree, 94);
-                      FIELD_B (paths[rcount1].segs[rcount2].is_rational, 73);
-                      FIELD_B (paths[rcount1].segs[rcount2].is_periodic, 74);
-                      FIELD_BL (paths[rcount1].segs[rcount2].num_knots, 95);
-                      FIELD_BL (paths[rcount1].segs[rcount2].num_control_points, 96);
+                      SUB_FIELD_BL (paths[rcount1].segs[rcount2], degree, 94);
+                      SUB_FIELD_B (paths[rcount1].segs[rcount2], is_rational, 73);
+                      SUB_FIELD_B (paths[rcount1].segs[rcount2], is_periodic, 74);
+                      SUB_FIELD_BL (paths[rcount1].segs[rcount2], num_knots, 95);
+                      SUB_FIELD_BL (paths[rcount1].segs[rcount2], num_control_points, 96);
                       if (FIELD_VALUE(paths[rcount1].segs[rcount2].num_knots > 10000))
                         {
                           LOG_ERROR("Invalid HATCH.paths.segs.num_knots " FORMAT_BL,
                                     _obj->paths[rcount1].segs[rcount2].num_knots);
-                          #ifdef IS_FREE
-                            END_REPEAT(paths[rcount1].segs);
-                            END_REPEAT(paths);
-                          #endif
+#ifdef IS_JSON
+                          NOCOMMA; ENDHASH;
+                          NOCOMMA; ENDHASH;
+                          END_REPEAT(paths[rcount1].segs);
+                          END_REPEAT(paths);
+#endif
                           return DWG_ERR_VALUEOUTOFBOUNDS;
                         }
                       FIELD_VECTOR (paths[rcount1].segs[rcount2].knots, BD,
@@ -3474,28 +3628,30 @@ DWG_ENTITY(HATCH)
                         {
                           LOG_ERROR("Invalid HATCH.paths.segs.num_control_points " FORMAT_BL,
                                     _obj->paths[rcount1].segs[rcount2].num_control_points);
-                          #ifdef IS_FREE
-                            END_REPEAT(paths[rcount1].segs);
-                            END_REPEAT(paths);
-                          #endif
+#ifdef IS_JSON
+                          NOCOMMA; ENDHASH;
+                          NOCOMMA; ENDHASH;
+#endif
+                          END_REPEAT(paths[rcount1].segs);
+                          END_REPEAT(paths);
                           return DWG_ERR_VALUEOUTOFBOUNDS;
                         }
                       REPEAT3(paths[rcount1].segs[rcount2].num_control_points,
                               paths[rcount1].segs[rcount2].control_points,
                               Dwg_HATCH_ControlPoint)
-                        {
-                          FIELD_2RD (paths[rcount1].segs[rcount2].control_points[rcount3].point, 10);
+                      REPEAT_BLOCK
+                          SUB_FIELD_2RD (paths[rcount1].segs[rcount2].control_points[rcount3], point, 10);
                           if (FIELD_VALUE(paths[rcount1].segs[rcount2].is_rational))
                             {
-                              FIELD_BD (paths[rcount1].segs[rcount2].control_points[rcount3].weight, 40);
+                              SUB_FIELD_BD (paths[rcount1].segs[rcount2].control_points[rcount3], weight, 40);
                             }
-                        }
+                      END_REPEAT_BLOCK
                       SET_PARENT(paths[rcount1].segs[rcount2].control_points,
                                  &_obj->paths[rcount1].segs[rcount2])
                       END_REPEAT(paths[rcount1].segs[rcount2].control_points);
                       SINCE(R_2013) // r2014 really
                         {
-                          FIELD_BL(paths[rcount1].segs[rcount2].num_fitpts, 97);
+                          SUB_FIELD_BL(paths[rcount1].segs[rcount2], num_fitpts, 97);
                           FIELD_2RD_VECTOR(paths[rcount1].segs[rcount2].fitpts,
                                            paths[rcount1].segs[rcount2].num_fitpts, 11);
                         }
@@ -3504,40 +3660,52 @@ DWG_ENTITY(HATCH)
                       LOG_ERROR("Invalid HATCH.type_status %d\n",
                                 FIELD_VALUE(paths[rcount1].segs[rcount2].type_status));
                       DEBUG_HERE_OBJ
-                      #ifdef IS_FREE
-                        END_REPEAT(paths[rcount1].segs);
-                        END_REPEAT(paths);
-                      #endif
+#ifdef IS_JSON
+                      NOCOMMA; ENDHASH;
+                      NOCOMMA; ENDHASH;
+#endif
+                      END_REPEAT(paths[rcount1].segs);
+                      END_REPEAT(paths);
                       return DWG_ERR_VALUEOUTOFBOUNDS;
                 }
-            }
+          END_REPEAT_BLOCK
           SET_PARENT(paths[rcount1].segs, &_obj->paths[rcount1])
           END_REPEAT(paths[rcount1].segs);
         }
       else
         { /* POLYLINE PATH */
-          FIELD_B (paths[rcount1].bulges_present, 72);
-          FIELD_B (paths[rcount1].closed, 73);
-          FIELD_BL (paths[rcount1].num_segs_or_paths, 91);
+          SUB_FIELD_B (paths[rcount1],bulges_present, 72);
+          SUB_FIELD_B (paths[rcount1],closed, 73);
+          SUB_FIELD_BL (paths[rcount1],num_segs_or_paths, 91);
           REPEAT2(paths[rcount1].num_segs_or_paths, paths[rcount1].polyline_paths,
                   Dwg_HATCH_PolylinePath)
-            {
+          REPEAT_BLOCK
               FIELD_2RD (paths[rcount1].polyline_paths[rcount2].point, 10);
               if (FIELD_VALUE(paths[rcount1].bulges_present))
                 {
-                  FIELD_BD (paths[rcount1].polyline_paths[rcount2].bulge, 42);
+                  SUB_FIELD_BD (paths[rcount1].polyline_paths[rcount2],bulge, 42);
                 }
-            }
+          END_REPEAT_BLOCK
           SET_PARENT(paths[rcount1].polyline_paths, &_obj->paths[rcount1])
           END_REPEAT(paths[rcount1].polyline_paths);
         }
-      FIELD_BL (paths[rcount1].num_boundary_handles, 97);
+      SUB_FIELD_BL (paths[rcount1],num_boundary_handles, 97);
+#if defined(IS_DXF) && !defined(IS_ENCODER)
+      DXF {
+        if (rcount1 < _obj->num_boundary_handles) {
+          FIELD_HANDLE (boundary_handles[rcount1], 0, 330)
+        } else {
+          LOG_WARN("HATCH.num_path < num_boundary_handles")
+          VALUE_HANDLE ((BITCODE_H)NULL, boundary_handles, 0, 330)
+        }
+      }
+#endif
       DECODER {
         FIELD_VALUE (num_boundary_handles) += FIELD_VALUE (paths[rcount1].num_boundary_handles);
         FIELD_VALUE (has_derived) =
           FIELD_VALUE (has_derived) || (FIELD_VALUE (paths[rcount1].flag) & 0x4);
       }
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(paths)
   END_REPEAT(paths);
   FIELD_BS (style, 75); // 0=normal (odd parity); 1=outer; 2=whole
@@ -3549,17 +3717,18 @@ DWG_ENTITY(HATCH)
       FIELD_B (double_flag, 77);
       FIELD_BS (num_deflines, 78);
       REPEAT(num_deflines, deflines, Dwg_HATCH_DefLine)
-        {
-          FIELD_BD (deflines[rcount1].angle, 53);
-          FIELD_2BD_1 (deflines[rcount1].pt0, 43);
-          FIELD_2BD_1 (deflines[rcount1].offset, 45);
-          FIELD_BS (deflines[rcount1].num_dashes, 79);
-          REPEAT2 (deflines[rcount1].num_dashes, deflines[rcount1].dashes, BITCODE_BD)
-            {
-              FIELD_BD (deflines[rcount1].dashes[rcount2], 49);
-            }
-          END_REPEAT(deflines[rcount1].dashes);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_BD (deflines[rcount1], angle, 53);
+          SUB_FIELD_2BD_1 (deflines[rcount1], pt0, 43);
+          SUB_FIELD_2BD_1 (deflines[rcount1], offset, 45);
+          SUB_FIELD_BS (deflines[rcount1], num_dashes, 79);
+          FIELD_VECTOR(deflines[rcount1].dashes, BD, deflines[rcount1].num_dashes, 49)
+          //REPEAT2 (deflines[rcount1].num_dashes, deflines[rcount1].dashes, BITCODE_BD)
+          //REPEAT_BLOCK
+          //    SUB_FIELD_BD (deflines[rcount1], dashes[rcount2], 49);
+          //END_REPEAT_BLOCK
+          //END_REPEAT(deflines[rcount1].dashes);
+      END_REPEAT_BLOCK
       SET_PARENT_OBJ(deflines)
       END_REPEAT(deflines);
     }
@@ -3576,20 +3745,20 @@ DWG_ENTITY(HATCH)
   FIELD_2RD_VECTOR (seeds, num_seeds, 10);
 
   COMMON_ENTITY_HANDLE_DATA;
-  HANDLE_VECTOR (boundary_handles, num_boundary_handles, 4, 330);
+  HANDLE_VECTOR (boundary_handles, num_boundary_handles, 4, 0); /* DXF: inlined above */
 
 DWG_OBJECT_END
 
 //pg.139
 DWG_OBJECT(IDBUFFER)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbIdBuffer)
   FIELD_RC (unknown, 0);
   FIELD_BL (num_obj_ids, 0);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   HANDLE_VECTOR(obj_ids, num_obj_ids, 4, 330);
@@ -3637,7 +3806,7 @@ DWG_ENTITY_END
 //pg.142 test-data/*/Leader_*.dwg
 DWG_OBJECT(IMAGEDEF)
 
-  DXF { FIELD_HANDLE (parenthandle, 3, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 3, 330); }
   SUBCLASS (AcDbRasterImageDef)
   FIELD_BL (class_version, 90);
   if (FIELD_VALUE(class_version) > 10)
@@ -3649,7 +3818,7 @@ DWG_OBJECT(IMAGEDEF)
   FIELD_2RD (pixel_size, 11);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   //DEBUG_POS_OBJ
@@ -3660,14 +3829,14 @@ DWG_OBJECT_END
 //PG.143
 DWG_OBJECT(IMAGEDEF_REACTOR)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbRasterImageDefReactor)
   FIELD_BL (class_version, 90);
   if (FIELD_VALUE(class_version) > 10)
     return DWG_ERR_VALUEOUTOFBOUNDS;
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -3676,21 +3845,21 @@ DWG_OBJECT_END
 //pg.144
 DWG_OBJECT(LAYER_INDEX)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbLayerIndex)
   FIELD_BL (timestamp1, 40);
   FIELD_BL (timestamp2, 40);
   FIELD_BL (num_entries, 0);
   REPEAT (num_entries, entries, Dwg_LAYER_entry)
-    {
-      FIELD_BL (entries[rcount1].idxlong, 0);
-      FIELD_T (entries[rcount1].layer, 8);
-    }
+  REPEAT_BLOCK
+      SUB_FIELD_BL (entries[rcount1], idxlong, 0);
+      SUB_FIELD_T (entries[rcount1], layer, 8);
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(entries)
   END_REPEAT(entries)
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   HANDLE_VECTOR(entry_handles, num_entries, ANYCODE, 0);
@@ -3700,7 +3869,7 @@ DWG_OBJECT_END
 //pg.145
 DWG_OBJECT(LAYOUT)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbPlotSettings)
   SUBCLASS (AcDbLayout)
   FIELD_T (page_setup_name, 1);
@@ -3757,7 +3926,7 @@ DWG_OBJECT(LAYOUT)
   }
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -3854,10 +4023,10 @@ DWG_ENTITY(LWPOLYLINE)
       FIELD_VECTOR (vertexids, BL, num_vertexids, 91);
     }
     REPEAT(num_widths, widths, Dwg_LWPOLYLINE_width)
-      {
-        FIELD_BD (widths[rcount1].start, 40);
-        FIELD_BD (widths[rcount1].end, 41);
-      }
+    REPEAT_BLOCK
+        SUB_FIELD_BD (widths[rcount1],start, 40);
+        SUB_FIELD_BD (widths[rcount1],end, 41);
+    END_REPEAT_BLOCK
     END_REPEAT(widths)
   }
 
@@ -3921,10 +4090,10 @@ DWG_ENTITY(PROXY_LWPOLYLINE)
 
   FIELD_VECTOR (bulges, BD, num_bulges);
   REPEAT(num_widths, widths, Dwg_LWPOLYLINE_width)
-    {
-      FIELD_BD (widths[rcount1].start);
-      FIELD_BD (widths[rcount1].end);
-    }
+  REPEAT_BLOCK
+      SUB_FIELD_BD (widths[rcount1].start);
+      SUB_FIELD_BD (widths[rcount1].end);
+  END_REPEAT_BLOCK
   END_REPEAT(widths)
 
   FIELD_RC (unknown_1);
@@ -3970,7 +4139,7 @@ DWG_ENTITY_END
 DWG_OBJECT(PROXY_OBJECT)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   FIELD_BL (class_id, 91);
   PRE(R_2018)
   {
@@ -3992,7 +4161,7 @@ DWG_OBJECT(PROXY_OBJECT)
   //TODO: figure out how to deal with the arbitrary size vector databits
   FIELD_RC (*data);
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 330);
+  FIELD_HANDLE (ownerhandle, 4, 330);
   REACTORS(4);
   XDICOBJHANDLE(3);
   */
@@ -4118,15 +4287,18 @@ DWG_OBJECT(FIELD)
 
   FIELD_BL (num_childval, 93);
   REPEAT_N((long)FIELD_VALUE(num_childval), childval, Dwg_FIELD_ChildValue)
-    {
-      FIELD_T (childval[rcount1].key, 6);
+  REPEAT_BLOCK
+      SUB_FIELD_T (childval[rcount1],key, 6);
       Table_Value(childval[rcount1].value)
       if (error & DWG_ERR_INVALIDTYPE)
         {
+#ifdef IS_JSON
+          NOCOMMA; ENDHASH;
+#endif
           END_REPEAT(childval)
           return error;
         }
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(childval)
   END_REPEAT(childval)
 
@@ -4193,19 +4365,19 @@ DWG_OBJECT(GEODATA)
   FIELD_T (observation_coverage_tag, 0);
   FIELD_BL (num_geomesh_pts, 93);
   REPEAT_N(FIELD_VALUE(num_geomesh_pts), geomesh_pts, Dwg_GEODATA_meshpt)
-    {
-      FIELD_2RD (geomesh_pts[rcount1].source_pt, 13);
-      FIELD_2RD (geomesh_pts[rcount1].dest_pt, 14);
-    }
+  REPEAT_BLOCK
+      SUB_FIELD_2RD (geomesh_pts[rcount1],source_pt, 13);
+      SUB_FIELD_2RD (geomesh_pts[rcount1],dest_pt, 14);
+  END_REPEAT_BLOCK
   END_REPEAT(geomesh_pts);
   FIELD_BL (num_geomesh_faces, 96);
   REPEAT_N(FIELD_VALUE(num_geomesh_faces), geomesh_faces, Dwg_GEODATA_meshface)
-    {
-      FIELD_BL (geomesh_faces[rcount1].face1, 97);
-      FIELD_BL (geomesh_faces[rcount1].face2, 98);
-      FIELD_BL (geomesh_faces[rcount1].face3, 99);
-      FIELD_BL (geomesh_faces[rcount1].face4, 0);
-    }
+  REPEAT_BLOCK
+      SUB_FIELD_BL (geomesh_faces[rcount1],face1, 97);
+      SUB_FIELD_BL (geomesh_faces[rcount1],face2, 98);
+      SUB_FIELD_BL (geomesh_faces[rcount1],face3, 99);
+      SUB_FIELD_BL (geomesh_faces[rcount1],face4, 0);
+  END_REPEAT_BLOCK
   END_REPEAT(geomesh_faces);
   UNTIL(R_2007) // r2009, class_version 1 really
     {
@@ -4221,7 +4393,7 @@ DWG_OBJECT_END
 //pg.220, 20.4.91
 DWG_OBJECT(RASTERVARIABLES)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbRasterVariables)
   FIELD_BL (class_version, 90);
   if (FIELD_VALUE(class_version) > 10)
@@ -4231,7 +4403,7 @@ DWG_OBJECT(RASTERVARIABLES)
   FIELD_BS (units, 72);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -4240,7 +4412,7 @@ DWG_OBJECT_END
 // 20.4.93 page 221
 DWG_OBJECT(SORTENTSTABLE)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbSortentsTable)
   FIELD_BL (num_ents, 0);
   HANDLE_VECTOR (sort_handles, num_ents, 0, 5);
@@ -4251,7 +4423,7 @@ DWG_OBJECT(SORTENTSTABLE)
   }
   REACTORS(4);
   XDICOBJHANDLE(3);
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   HANDLE_VECTOR (ents, num_ents, 4, 331);
 
 DWG_OBJECT_END
@@ -4259,7 +4431,7 @@ DWG_OBJECT_END
 //pg.222, 20.4.94 to clip external references
 DWG_OBJECT(SPATIAL_FILTER)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbSpatialFilter)
   FIELD_BS (num_points, 70);
   FIELD_2RD_VECTOR (points, num_points, 10);
@@ -4278,7 +4450,7 @@ DWG_OBJECT(SPATIAL_FILTER)
   FIELD_VECTOR_N (clip_bound_transform, BD, 12, 40);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -4287,13 +4459,13 @@ DWG_OBJECT_END
 //pg.153
 DWG_OBJECT(SPATIAL_INDEX)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbSpatialIndex)
   FIELD_BL (timestamp1, 0);
   FIELD_BL (timestamp2, 0);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -4333,16 +4505,16 @@ DWG_OBJECT_END
       FIELD_BD (sty.margin_vert_spacing, 40); \
       FIELD_BL (sty.num_borders, 94); /* 0-6 */ \
       REPEAT2(sty.num_borders, sty.border, Dwg_BorderStyle) \
-        { \
-          FIELD_BL (sty.border[rcount2].edge_flags, 95); \
-          FIELD_BL (sty.border[rcount2].border_property_overrides_flag, 90); \
-          FIELD_BL (sty.border[rcount2].border_type, 91); \
-          FIELD_CMC (sty.border[rcount2].color, 62,420);     \
-          FIELD_BL (sty.border[rcount2].linewt, 92); \
-          FIELD_HANDLE (sty.border[rcount2].line_type, 3, 340); \
-          FIELD_BL (sty.border[rcount2].invisible, 93); \
-          FIELD_BD (sty.border[rcount2].double_line_spacing, 93); \
-        } \
+      REPEAT_BLOCK \
+          SUB_FIELD_BL (sty.border[rcount2],edge_flags, 95);              \
+          SUB_FIELD_BL (sty.border[rcount2],border_property_overrides_flag, 90); \
+          SUB_FIELD_BL (sty.border[rcount2],border_type, 91);               \
+          SUB_FIELD_CMC (sty.border[rcount2],color, 62,420);                \
+          SUB_FIELD_BL (sty.border[rcount2],linewt, 92);                    \
+          SUB_FIELD_HANDLE (sty.border[rcount2],line_type, 3, 340);         \
+          SUB_FIELD_BL (sty.border[rcount2],invisible, 93);                 \
+          SUB_FIELD_BD (sty.border[rcount2],double_line_spacing, 93);       \
+      END_REPEAT_BLOCK \
       END_REPEAT (sty.border)
 
 //pg.237 20.4.97
@@ -4355,59 +4527,69 @@ DWG_OBJECT(TABLECONTENT)
 
   FIELD_BL (tdata.num_cols, 90);
   REPEAT(tdata.num_cols, tdata.cols, Dwg_TableDataColumn)
-    {
-      FIELD_T (tdata.cols[rcount1].name, 300);
-      FIELD_BL (tdata.cols[rcount1].custom_data, 91);
+  REPEAT_BLOCK
+      SUB_FIELD_T (tdata.cols[rcount1],name, 300);
+      SUB_FIELD_BL (tdata.cols[rcount1],custom_data, 91);
       Cell_Style_Fields(tdata.cols[rcount1].cell_style);
-    }
+  END_REPEAT_BLOCK
   SET_PARENT(tdata.cols, &_obj->tdata)
   END_REPEAT(tdata.cols);
   FIELD_BL (tdata.num_rows, 90);
   REPEAT(tdata.num_rows, tdata.rows, Dwg_TableRow)
-    {
+  REPEAT_BLOCK
       #define row tdata.rows[rcount1]
       FIELD_BL (row.num_cells, 90);
       REPEAT2(row.num_cells, row.cells, Dwg_TableCell)
-        {
+      REPEAT_BLOCK
           #define cell row.cells[rcount2]
-          FIELD_BL (cell.flag, 90);
-          FIELD_T (cell.tooltip, 300);
-          FIELD_BL (cell.customdata, 91);
-          FIELD_BL (cell.num_customdata_items, 90);
+          SUB_FIELD_BL (cell,flag, 90);
+          SUB_FIELD_T (cell,tooltip, 300);
+          SUB_FIELD_BL (cell,customdata, 91);
+          SUB_FIELD_BL (cell,num_customdata_items, 90);
           REPEAT3(cell.num_customdata_items, cell.customdata_items, Dwg_TABLE_CustomDataItem)
-            {
-              FIELD_T (cell.customdata_items[rcount3].name, 300);
+          REPEAT_BLOCK
+              SUB_FIELD_T (cell.customdata_items[rcount3],name, 300);
               Table_Value(cell.customdata_items[rcount3].value);
               if (error & DWG_ERR_INVALIDTYPE)
                 {
+#ifdef IS_JSON
+                  NOCOMMA; ENDHASH;
+                  NOCOMMA; ENDHASH;
+                  NOCOMMA; ENDHASH;
+#endif
                   END_REPEAT(cell.customdata_items)
                   END_REPEAT(row.cells)
                   END_REPEAT(tdata.rows)
                   return error;
                 }
-            }
+          END_REPEAT_BLOCK
           SET_PARENT_FIELD(cell.customdata_items, cell_parent, &_obj->cell)
           END_REPEAT(cell.customdata_items);
-          FIELD_BL (cell.has_linked_data, 92);
+          SUB_FIELD_BL (cell,has_linked_data, 92);
           if (FIELD_VALUE(cell.has_linked_data))
             {
-              FIELD_HANDLE (cell.data_link, 5, 340);
-              FIELD_BL (cell.num_rows, 93);
-              FIELD_BL (cell.num_cols, 94);
-              FIELD_BL (cell.unknown, 96);
+              SUB_FIELD_HANDLE (cell,data_link, 5, 340);
+              SUB_FIELD_BL (cell,num_rows, 93);
+              SUB_FIELD_BL (cell,num_cols, 94);
+              SUB_FIELD_BL (cell,unknown, 96);
             }
-          FIELD_BL (cell.num_cell_contents, 95);
+          SUB_FIELD_BL (cell,num_cell_contents, 95);
           REPEAT3(cell.num_cell_contents, cell.cell_contents, Dwg_TableCellContent)
-            {
+          REPEAT_BLOCK
               #define content tdata.rows[rcount1].cells[rcount2].cell_contents[rcount3]
 
-              FIELD_BL(content.type, 90);
+              SUB_FIELD_BL(content,type, 90);
               if (FIELD_VALUE(content.type) == 1)
                 {
                   // 20.4.99 Value, page 241
                   Table_Value(content.value)
                   if (error & DWG_ERR_INVALIDTYPE)
                     {
+#ifdef IS_JSON
+                      NOCOMMA; ENDHASH;
+                      NOCOMMA; ENDHASH;
+                      NOCOMMA; ENDHASH;
+#endif
                       END_REPEAT(cell.cell_contents)
                       END_REPEAT(row.cells)
                       END_REPEAT(tdata.rows)
@@ -4415,20 +4597,20 @@ DWG_OBJECT(TABLECONTENT)
                     }
                 }
               else if (FIELD_VALUE(content.type) == 2) { // Field
-                FIELD_HANDLE (content.handle, 3, 340);
+                SUB_FIELD_HANDLE (content,handle, 3, 340);
               }
               else if (FIELD_VALUE(content.type) == 4) { // Block
-                FIELD_HANDLE (content.handle, 3, 340);
+                SUB_FIELD_HANDLE (content,handle, 3, 340);
               }
-              FIELD_BL (content.num_attrs, 91);
+              SUB_FIELD_BL (content,num_attrs, 91);
               REPEAT4(content.num_attrs, content.attrs, Dwg_TableCellContent_Attr)
-                {
+              REPEAT_BLOCK
                   #define attr content.attrs[rcount4]
-                  FIELD_HANDLE (attr.attdef, 5, 330);
-                  FIELD_T (attr.value, 301);
-                  FIELD_BL (attr.index, 92);
+                  SUB_FIELD_HANDLE (attr,attdef, 5, 330);
+                  SUB_FIELD_T (attr,value, 301);
+                  SUB_FIELD_BL (attr,index, 92);
                   #undef attr
-                }
+              END_REPEAT_BLOCK
               SET_PARENT(content.attrs, &_obj->content)
               END_REPEAT(content.attrs);
               if (FIELD_VALUE(content.has_content_format_overrides))
@@ -4436,61 +4618,65 @@ DWG_OBJECT(TABLECONTENT)
                   Content_Format(content.content_format);
                 }
               #undef content
-            }
+          END_REPEAT_BLOCK
           SET_PARENT(cell.cell_contents, &_obj->cell)
           END_REPEAT(cell.cell_contents);
-          FIELD_BL (cell.style_id, 90);
-          FIELD_BL (cell.has_geom_data, 91);
+          SUB_FIELD_BL (cell, style_id, 90);
+          SUB_FIELD_BL (cell, has_geom_data, 91);
           if (FIELD_VALUE(cell.has_geom_data))
             {
-              FIELD_BL (cell.geom_data_flag, 91);
-              FIELD_BD (cell.unknown_d40, 40);
-              FIELD_BD (cell.unknown_d41, 41);
-              FIELD_BL (cell.has_cell_geom, 0);
-              FIELD_HANDLE (cell.cell_geom_handle, ANYCODE, 0);
+              SUB_FIELD_BL (cell,geom_data_flag, 91);
+              SUB_FIELD_BD (cell,unknown_d40, 40);
+              SUB_FIELD_BD (cell,unknown_d41, 41);
+              SUB_FIELD_BL (cell,has_cell_geom, 0);
+              SUB_FIELD_HANDLE (cell,cell_geom_handle, ANYCODE, 0);
               if (FIELD_VALUE(cell.has_cell_geom))
                 {
                   REPEAT_N(1, cell.geom_data, Dwg_CellContentGeometry)
-                    {
+                  REPEAT_BLOCK
 #define geom cell.geom_data[0]
-                      FIELD_3BD (geom.dist_top_left, 0);
-                      FIELD_3BD (geom.dist_center, 0);
-                      FIELD_BD (geom.content_width, 0);
-                      FIELD_BD (geom.width, 0);
-                      FIELD_BD (geom.height, 0);
-                      FIELD_BD (geom.unknown, 0);
+                      SUB_FIELD_3BD (geom,dist_top_left, 0);
+                      SUB_FIELD_3BD (geom,dist_center, 0);
+                      SUB_FIELD_BD (geom,content_width, 0);
+                      SUB_FIELD_BD (geom,width, 0);
+                      SUB_FIELD_BD (geom,height, 0);
+                      SUB_FIELD_BD (geom,unknown, 0);
 #undef geom
-                    }
+                  END_REPEAT_BLOCK
                   SET_PARENT_FIELD(cell.geom_data, cell_parent, &_obj->cell)
                   END_REPEAT (cell.geom_data);
                 }
             }
           #undef cell
-        }
+      END_REPEAT_BLOCK
       SET_PARENT_FIELD(row.cells, row_parent, &_obj->row)
       END_REPEAT(row.cells);
-      FIELD_BL (row.custom_data, 91);
-      FIELD_BL (row.num_customdata_items, 90);
+      SUB_FIELD_BL (row,custom_data, 91);
+      SUB_FIELD_BL (row,num_customdata_items, 90);
       REPEAT3(row.num_customdata_items, row.customdata_items, Dwg_TABLE_CustomDataItem)
-        {
-          FIELD_T (row.customdata_items[rcount3].name, 300);
+      REPEAT_BLOCK
+          SUB_FIELD_T (row.customdata_items[rcount3],name, 300);
           Table_Value(row.customdata_items[rcount3].value);
           if (error & DWG_ERR_INVALIDTYPE)
             {
+#ifdef IS_JSON
+              NOCOMMA; ENDHASH;
+              NOCOMMA; ENDHASH;
+#endif
               END_REPEAT(row.customdata_items)
               END_REPEAT(tdata.rows)
               return error;
             }
-        }
+      END_REPEAT_BLOCK
       SET_PARENT_FIELD(row.customdata_items, row_parent, &_obj->row)
       END_REPEAT(row.customdata_items);
       {
         Cell_Style_Fields(row.cell_style);
-        FIELD_BL (row.style_id, 90);
-        FIELD_BL (row.height, 40);
+        SUB_FIELD_BL (row,style_id, 90);
+        SUB_FIELD_BL (row,height, 40);
       }
       #undef row
-    }
+  END_REPEAT_BLOCK
   SET_PARENT(tdata.rows, &_obj->tdata)
   END_REPEAT(tdata.rows);
   FIELD_BL (tdata.num_field_refs, 0);
@@ -4498,14 +4684,14 @@ DWG_OBJECT(TABLECONTENT)
 
   FIELD_BL (fdata.num_merged_cells, 90);
   REPEAT(fdata.num_merged_cells, fdata.merged_cells, Dwg_FormattedTableMerged)
-    {
+  REPEAT_BLOCK
       #define merged fdata.merged_cells[rcount1]
-      FIELD_BL (merged.top_row, 91);
-      FIELD_BL (merged.left_col, 92);
-      FIELD_BL (merged.bottom_row, 93);
-      FIELD_BL (merged.right_col, 94);
+      SUB_FIELD_BL (merged,top_row, 91);
+      SUB_FIELD_BL (merged,left_col, 92);
+      SUB_FIELD_BL (merged,bottom_row, 93);
+      SUB_FIELD_BL (merged,right_col, 94);
       #undef merged
-    }
+  END_REPEAT_BLOCK
   SET_PARENT(fdata.merged_cells, &_obj->fdata)
   END_REPEAT(fdata.merged_cells);
 
@@ -4523,12 +4709,12 @@ DWG_OBJECT(CELLSTYLEMAP)
   //SUBCLASS (AcDbCellStyleMap)
   FIELD_BL (num_cells, 90);
   REPEAT(num_cells, cells, Dwg_CELLSTYLEMAP_Cell)
-    {
+  REPEAT_BLOCK
       Cell_Style_Fields(cells[rcount1].style);
-      FIELD_BL (cells[rcount1].id, 90);
-      FIELD_BL (cells[rcount1].type, 91);
-      FIELD_T (cells[rcount1].name, 300);
-    }
+      SUB_FIELD_BL (cells[rcount1],id, 90);
+      SUB_FIELD_BL (cells[rcount1],type, 91);
+      SUB_FIELD_T (cells[rcount1],name, 300);
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(cells)
   END_REPEAT (cells);
 
@@ -4543,27 +4729,27 @@ DWG_OBJECT(TABLEGEOMETRY)
   FIELD_BL (num_cols, 91);
   FIELD_BL (num_cells, 92);
   REPEAT(num_cells, cells, Dwg_TABLEGEOMETRY_Cell)
-    {
+  REPEAT_BLOCK
       #define cell cells[rcount1]
-      FIELD_BL (cell.flag, 93);
-      FIELD_BD (cell.width_w_gap, 40);
-      FIELD_BD (cell.height_w_gap, 41);
-      FIELD_HANDLE (cell.unknown, 3, 330);
-      FIELD_BL (cell.num_geom_data, 94);
+      SUB_FIELD_BL (cell,flag, 93);
+      SUB_FIELD_BD (cell,width_w_gap, 40);
+      SUB_FIELD_BD (cell,height_w_gap, 41);
+      SUB_FIELD_HANDLE (cell,unknown, 3, 330);
+      SUB_FIELD_BL (cell,num_geom_data, 94);
       REPEAT2(cell.num_geom_data, cell.geom_data, Dwg_CellContentGeometry)
-        {
+      REPEAT_BLOCK
           #define geom cell.geom_data[rcount2]
-          FIELD_3BD (geom.dist_top_left, 0);
-          FIELD_3BD (geom.dist_center, 0);
-          FIELD_BD (geom.content_width, 0);
-          FIELD_BD (geom.width, 0);
-          FIELD_BD (geom.height, 0);
-          FIELD_BD (geom.unknown, 0);
+          SUB_FIELD_3BD (geom,dist_top_left, 0);
+          SUB_FIELD_3BD (geom,dist_center, 0);
+          SUB_FIELD_BD (geom,content_width, 0);
+          SUB_FIELD_BD (geom,width, 0);
+          SUB_FIELD_BD (geom,height, 0);
+          SUB_FIELD_BD (geom,unknown, 0);
           #undef geom
-        }
+      END_REPEAT_BLOCK
       SET_PARENT_FIELD(cell.geom_data, geom_parent, &_obj->cell)
       END_REPEAT(cell.geom_data);
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(cells)
   END_REPEAT(cells);
 
@@ -4658,29 +4844,29 @@ DWG_ENTITY(TABLE)
   FIELD_VECTOR (row_heights, BD, num_rows, 141);
   FIELD_VALUE(num_cells) = FIELD_VALUE(num_rows) * FIELD_VALUE(num_cols);
   REPEAT(num_cells, cells, Dwg_TABLE_Cell)
-    {
+  REPEAT_BLOCK
       //SUBCLASS (AcDbDataCell)
-      FIELD_BS (cells[rcount1].type, 171);
-      FIELD_RC (cells[rcount1].flags, 172);
-      FIELD_B (cells[rcount1].merged_value, 173);
-      FIELD_B (cells[rcount1].autofit_flag, 174);
-      FIELD_BL (cells[rcount1].merged_width_flag, 175);
-      FIELD_BL (cells[rcount1].merged_height_flag, 176);
-      FIELD_BD (cells[rcount1].rotation_value, 145);
+      SUB_FIELD_BS (cells[rcount1],type, 171);
+      SUB_FIELD_RC (cells[rcount1],flags, 172);
+      SUB_FIELD_B (cells[rcount1],merged_value, 173);
+      SUB_FIELD_B (cells[rcount1],autofit_flag, 174);
+      SUB_FIELD_BL (cells[rcount1],merged_width_flag, 175);
+      SUB_FIELD_BL (cells[rcount1],merged_height_flag, 176);
+      SUB_FIELD_BD (cells[rcount1],rotation_value, 145);
 
       if (FIELD_VALUE(cells[rcount1].type) == 1)
         { /* text cell */
-          FIELD_T (cells[rcount1].text_string, 1);
+          SUB_FIELD_T (cells[rcount1],text_string, 1);
         }
       if (FIELD_VALUE(cells[rcount1].type) == 2)
         { /* block cell */
-          FIELD_BD (cells[rcount1].block_scale, 144);
-          FIELD_B (cells[rcount1].additional_data_flag, 0);
+          SUB_FIELD_BD (cells[rcount1],block_scale, 144);
+          SUB_FIELD_B (cells[rcount1],additional_data_flag, 0);
           if (FIELD_VALUE(cells[rcount1].additional_data_flag) == 1)
             {
-              FIELD_BS (cells[rcount1].num_attr_defs, 179);
-              FIELD_BS (cells[rcount1].attr_def_index, 0);
-              FIELD_T (cells[rcount1].attr_def_text, 300);
+              SUB_FIELD_BS (cells[rcount1],num_attr_defs, 179);
+              SUB_FIELD_BS (cells[rcount1],attr_def_index, 0);
+              SUB_FIELD_T (cells[rcount1],attr_def_text, 300);
               //total_num_attr_defs += FIELD_VALUE (cells[rcount1].num_attr_defs);
             }
         }
@@ -4688,63 +4874,66 @@ DWG_ENTITY(TABLE)
           (FIELD_VALUE(cells[rcount1].type) == 1 ||
            FIELD_VALUE(cells[rcount1].type) == 2))
         { /* common to both text and block cells */
-          FIELD_B (cells[rcount1].additional_data_flag, 0);
+          SUB_FIELD_B (cells[rcount1],additional_data_flag, 0);
           if (FIELD_VALUE(cells[rcount1].additional_data_flag) == 1)
             {
               BITCODE_BL cell_flag;
-              FIELD_BL (cells[rcount1].cell_flag_override, 177);
+              SUB_FIELD_BL (cells[rcount1],cell_flag_override, 177);
               cell_flag = FIELD_VALUE(cells[rcount1].cell_flag_override);
-              FIELD_RC (cells[rcount1].virtual_edge_flag, 178);
+              SUB_FIELD_RC (cells[rcount1],virtual_edge_flag, 178);
 
               if (cell_flag & 0x01)
-                FIELD_RS (cells[rcount1].cell_alignment, 170);
+                SUB_FIELD_RS (cells[rcount1],cell_alignment, 170);
               if (cell_flag & 0x02)
-                FIELD_B (cells[rcount1].background_fill_none, 283);
+                SUB_FIELD_B (cells[rcount1],background_fill_none, 283);
               if (cell_flag & 0x04)
-                FIELD_CMC (cells[rcount1].background_color, 63,421);
+                SUB_FIELD_CMC (cells[rcount1],background_color, 63,421);
               if (cell_flag & 0x08)
-                FIELD_CMC (cells[rcount1].content_color, 64,422);
+                SUB_FIELD_CMC (cells[rcount1],content_color, 64,422);
               if (cell_flag & 0x10)
-                FIELD_HANDLE (cells[rcount1].text_style, 5, 7);
+                SUB_FIELD_HANDLE (cells[rcount1],text_style, 5, 7);
               if (cell_flag & 0x20)
-                FIELD_BD (cells[rcount1].text_height, 140);
+                SUB_FIELD_BD (cells[rcount1],text_height, 140);
               if (cell_flag & 0x00040)
-                FIELD_CMC (cells[rcount1].top_grid_color, 69,0);
+                SUB_FIELD_CMC (cells[rcount1],top_grid_color, 69,0);
               if (cell_flag & 0x00400)
-                FIELD_BS (cells[rcount1].top_grid_linewt, 279);
+                SUB_FIELD_BS (cells[rcount1],top_grid_linewt, 279);
               if (cell_flag & 0x04000)
-                FIELD_BS (cells[rcount1].top_visibility, 289);
+                SUB_FIELD_BS (cells[rcount1],top_visibility, 289);
               if (cell_flag & 0x00080)
-                FIELD_CMC (cells[rcount1].right_grid_color, 65,423);
+                SUB_FIELD_CMC (cells[rcount1],right_grid_color, 65,423);
               if (cell_flag & 0x00800)
-                FIELD_BS (cells[rcount1].right_grid_linewt, 275);
+                SUB_FIELD_BS (cells[rcount1],right_grid_linewt, 275);
               if (cell_flag & 0x08000)
-                FIELD_BS (cells[rcount1].right_visibility, 285);
+                SUB_FIELD_BS (cells[rcount1],right_visibility, 285);
               if (cell_flag & 0x00100)
-                FIELD_CMC (cells[rcount1].bottom_grid_color, 66,0);
+                SUB_FIELD_CMC (cells[rcount1],bottom_grid_color, 66,0);
               if (cell_flag & 0x01000)
-                FIELD_BS (cells[rcount1].bottom_grid_linewt, 276);
+                SUB_FIELD_BS (cells[rcount1],bottom_grid_linewt, 276);
               if (cell_flag & 0x10000)
-                FIELD_BS (cells[rcount1].bottom_visibility, 286);
+                SUB_FIELD_BS (cells[rcount1],bottom_visibility, 286);
               if (cell_flag & 0x00200)
-                FIELD_CMC (cells[rcount1].left_grid_color, 68,0);
+                SUB_FIELD_CMC (cells[rcount1],left_grid_color, 68,0);
               if (cell_flag & 0x02000)
-                FIELD_BS (cells[rcount1].left_grid_linewt, 278);
+                SUB_FIELD_BS (cells[rcount1],left_grid_linewt, 278);
               if (cell_flag & 0x20000)
-                FIELD_BS (cells[rcount1].left_visibility, 288);
+                SUB_FIELD_BS (cells[rcount1],left_visibility, 288);
 
-              FIELD_BL (cells[rcount1].unknown, 0);
+              SUB_FIELD_BL (cells[rcount1],unknown, 0);
 
               // 20.4.99 Value, page 241
               Table_Value(cells[rcount1].value)
               if (error & DWG_ERR_INVALIDTYPE)
                 {
+#ifdef IS_JSON
+                  NOCOMMA; ENDHASH;
+#endif
                   END_REPEAT(cells);
                   return error;
                 }
             }
         }
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(cells)
   END_REPEAT(cells);
   /* End Cell Data (remaining data applies to entire table)*/
@@ -4952,20 +5141,21 @@ DWG_ENTITY(TABLE)
       HANDLE_VECTOR (attribs, num_owned, 4, 0)
     }
 
-  if (FIELD_VALUE(has_attribs))
+  if (FIELD_VALUE(has_attribs)) {
     FIELD_HANDLE (seqend, 3, 0);
+  }
 
   FIELD_HANDLE (table_style_id, 5, 342);
 
   REPEAT(num_cells, cells, Dwg_TABLE_Cell)
-    {
+  REPEAT_BLOCK
       if (FIELD_VALUE(cells[rcount1].type) == 1)
         { /* text cell */
-          FIELD_HANDLE (cells[rcount1].cell_handle, 5, 344);
+          SUB_FIELD_HANDLE (cells[rcount1],cell_handle, 5, 344);
         }
       else
         { /* block cell */
-          FIELD_HANDLE (cells[rcount1].cell_handle, 5, 340);
+          SUB_FIELD_HANDLE (cells[rcount1],cell_handle, 5, 340);
         }
 
       if (FIELD_VALUE(cells[rcount1].type) == 2 &&
@@ -4977,9 +5167,9 @@ DWG_ENTITY(TABLE)
       if (FIELD_VALUE(cells[rcount1].additional_data_flag2) == 1 &&
           FIELD_VALUE(cells[rcount1].cell_flag_override) & 0x08)
         {
-          FIELD_HANDLE (cells[rcount1].text_style_override, ANYCODE, 7);
+          SUB_FIELD_HANDLE (cells[rcount1],text_style_override, ANYCODE, 7);
         }
-    }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(cells)
   END_REPEAT(cells);
 
@@ -5012,21 +5202,21 @@ DWG_ENTITY(TABLE)
           FIELD_BL (break_unknown2, 0);
           FIELD_BL (num_break_heights, 0);
           REPEAT(num_break_heights, break_heights, Dwg_TABLE_BreakHeight)
-            {
-              FIELD_3BD (break_heights[rcount1].position, 0);
-              FIELD_BD (break_heights[rcount1].height, 0);
-              FIELD_BL (break_heights[rcount1].flag, 0);
-            }
+          REPEAT_BLOCK
+              SUB_FIELD_3BD (break_heights[rcount1],position, 0);
+              SUB_FIELD_BD (break_heights[rcount1],height, 0);
+              SUB_FIELD_BL (break_heights[rcount1],flag, 0);
+          END_REPEAT_BLOCK
           SET_PARENT_OBJ(break_heights)
           END_REPEAT(break_heights);
         }
       FIELD_BL (num_break_rows, 0);
       REPEAT(num_break_rows, break_rows, Dwg_TABLE_BreakRow)
-        {
-          FIELD_3BD (break_rows[rcount1].position, 0);
-          FIELD_BL (break_rows[rcount1].start, 0);
-          FIELD_BL (break_rows[rcount1].end, 0);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_3BD (break_rows[rcount1],position, 0);
+          SUB_FIELD_BL (break_rows[rcount1],start, 0);
+          SUB_FIELD_BL (break_rows[rcount1],end, 0);
+      END_REPEAT_BLOCK
       SET_PARENT_OBJ(break_rows)
       END_REPEAT(break_rows);
     }
@@ -5040,7 +5230,7 @@ DWG_ENTITY_END
 DWG_OBJECT(XRECORD)
 
   DXF {
-    FIELD_HANDLE (parenthandle, 4, 330);
+    FIELD_HANDLE (ownerhandle, 4, 330);
     SUBCLASS (AcDbXrecord)
     SINCE(R_2000) {
       FIELD_BS (cloning_flags, 280);
@@ -5054,7 +5244,7 @@ DWG_OBJECT(XRECORD)
   }
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 330); // 3 or 8
+  FIELD_HANDLE (ownerhandle, 4, 330); // 3 or 8
 #endif
   REACTORS(4);
   XDICOBJHANDLE(3);
@@ -5082,7 +5272,7 @@ DWG_OBJECT(XRECORD)
     #ifdef IS_DXF
     if (FIELD_VALUE(objid_handles)) {
       REPEAT(num_objid_handles, objid_handles, T)
-        VALUE_H (_obj->objid_handles[rcount1], 340);
+          VALUE_H (_obj->objid_handles[rcount1], 340);
       END_REPEAT(objid_handles)
     }
     #endif
@@ -5095,7 +5285,7 @@ DWG_OBJECT(PLACEHOLDER)
 
   // no own data members
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 330);
+  FIELD_HANDLE (ownerhandle, 4, 330);
   REACTORS(4);
   XDICOBJHANDLE(3);
 // no SUBCLASS marker
@@ -5106,7 +5296,7 @@ DWG_OBJECT_END
 // 20.4.92 page 221
 DWG_OBJECT(SCALE)
 
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbScale)
   FIELD_BS (flag, 70);
   FIELD_T (name, 300);
@@ -5115,7 +5305,7 @@ DWG_OBJECT(SCALE)
   FIELD_B (has_unit_scale, 290);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -5128,13 +5318,13 @@ DWG_OBJECT_END
 DWG_OBJECT(VBA_PROJECT)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbVbaProject)
   FIELD_RL (num_bytes, 0);
   FIELD_TF (bytes, FIELD_VALUE(num_bytes), 0);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -5149,7 +5339,7 @@ DWG_ENTITY(MULTILEADER)
 
   //DECODE_UNKNOWN_BITS
   SUBCLASS (AcDbMLeader)
-  DXF { VALUE_TFF ("CONTEXT_DATA{", 300); } //AcDbObjectContextData
+  DXF_OR_PRINT { VALUE_TFF ("CONTEXT_DATA{", 300); } //AcDbObjectContextData
 
   SINCE(R_2010)
     {
@@ -5171,68 +5361,69 @@ DWG_ENTITY(MULTILEADER)
     LOG_ERROR("Invalid MULTILEADER.ctx.num_leaders %d", _obj->ctx.num_leaders);
     return DWG_ERR_VALUEOUTOFBOUNDS;
   }
-  DXF { VALUE_TFF ("LEADER{", 302); }
+  DXF_OR_PRINT { VALUE_TFF ("LEADER{", 302); }
   REPEAT(ctx.num_leaders, ctx.leaders, Dwg_LEADER)
-    {
+  REPEAT_BLOCK
       #define lnode ctx.leaders[rcount1]
-      FIELD_B (lnode.has_lastleaderlinepoint, 290);
-      FIELD_B (lnode.has_dogleg, 291);
+      SUB_FIELD_B (lnode, has_lastleaderlinepoint, 290);
+      SUB_FIELD_B (lnode, has_dogleg, 291);
       if (FIELD_VALUE(lnode.has_lastleaderlinepoint))
         {
-          FIELD_3BD (lnode.lastleaderlinepoint, 10);
+          SUB_FIELD_3BD (lnode, lastleaderlinepoint, 10);
         }
       if (FIELD_VALUE(lnode.has_dogleg))
         {
-          FIELD_3BD (lnode.dogleg_vector, 11);
+          SUB_FIELD_3BD (lnode, dogleg_vector, 11);
         }
-      FIELD_BL (lnode.num_breaks, 0);
+      SUB_FIELD_BL (lnode, num_breaks, 0);
       REPEAT2(lnode.num_breaks, lnode.breaks, Dwg_LEADER_Break)
-        {
-          FIELD_3BD (lnode.breaks[rcount2].start, 11);
-          FIELD_3BD (lnode.breaks[rcount2].end, 12);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_3BD (lnode.breaks[rcount2], start, 11);
+          SUB_FIELD_3BD (lnode.breaks[rcount2], end, 12);
+      END_REPEAT_BLOCK
       SET_PARENT(lnode.breaks, (struct _dwg_LEADER_Line *)&_obj->lnode);
       END_REPEAT(lnode.breaks);
-      FIELD_BL (lnode.branch_index, 90);
-      FIELD_BD (lnode.dogleg_length, 40);
-      DXF { VALUE_TFF ("LEADER_LINE{", 304); }
-      FIELD_BL (lnode.num_lines, 0);
+
+      SUB_FIELD_BL (lnode, branch_index, 90);
+      SUB_FIELD_BD (lnode, dogleg_length, 40);
+      DXF_OR_PRINT { VALUE_TFF ("LEADER_LINE{", 304); }
+      SUB_FIELD_BL (lnode, num_lines, 0);
       REPEAT2 (lnode.num_lines, lnode.lines, Dwg_LEADER_Line)
-        {
+      REPEAT_BLOCK
           #define lline lnode.lines[rcount2]
-          FIELD_BL (lline.numpts, 0);
+          SUB_FIELD_BL (lline, numpts, 0);
           FIELD_3DPOINT_VECTOR (lline.points, lline.numpts, 10);
-          FIELD_BL (lline.num_breaks, 0);
+          SUB_FIELD_BL (lline, num_breaks, 0);
           REPEAT3 (lline.num_breaks, lline.breaks, Dwg_LEADER_Break)
-            {
-              FIELD_3BD (lline.breaks[rcount3].start, 11);
-              FIELD_3BD (lline.breaks[rcount3].end, 12);
-            }
+          REPEAT_BLOCK
+              SUB_FIELD_3BD (lline.breaks[rcount3], start, 11);
+              SUB_FIELD_3BD (lline.breaks[rcount3], end, 12);
+          END_REPEAT_BLOCK
           SET_PARENT(lline.breaks, &_obj->lline);
           END_REPEAT(lline.breaks);
-          FIELD_BL (lline.line_index, 91);
+          SUB_FIELD_BL (lline, line_index, 91);
 
           SINCE (R_2010)
             {
-              FIELD_BS (lline.type, 170);
-              FIELD_CMC (lline.color, 92,0);
-              //FIELD_HANDLE (lline.ltype, 5, 340);
-              FIELD_BL (lline.linewt, 171);
-              FIELD_BD (lline.arrow_size, 40);
-              //FIELD_HANDLE (lline.arrow_handle, 5, 341);
-              FIELD_BL (lline.flags, 93);
+              SUB_FIELD_BS (lline, type, 170);
+              SUB_FIELD_CMC (lline, color, 92,0);
+              //SUB_FIELD_HANDLE (lline, ltype, 5, 340);
+              SUB_FIELD_BL (lline, linewt, 171);
+              SUB_FIELD_BD (lline, arrow_size, 40);
+              //SUB_FIELD_HANDLE (lline, arrow_handle, 5, 341);
+              SUB_FIELD_BL (lline, flags, 93);
             }
             #undef lline
-        }
+      END_REPEAT_BLOCK
       SET_PARENT(lnode.lines, &_obj->lnode);
       END_REPEAT(lnode.lines)
       SINCE (R_2010)
-        FIELD_BS (lnode.attach_dir, 271);
-      DXF { VALUE_TFF ("}", 305); }
-    }
+        SUB_FIELD_BS (lnode, attach_dir, 271);
+      DXF_OR_PRINT { VALUE_TFF ("}", 305); }
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(ctx.leaders)
   END_REPEAT(ctx.leaders)
-  DXF { VALUE_TFF ("}", 303); }
+  DXF_OR_PRINT { VALUE_TFF ("}", 303); }
 
   FIELD_BD (ctx.scale, 40);
   FIELD_3BD (ctx.content_base, 10);
@@ -5300,7 +5491,7 @@ DWG_ENTITY(MULTILEADER)
       FIELD_BS (ctx.text_top, 273);
       FIELD_BS (ctx.text_bottom, 272);
     }
-  DXF { VALUE_TFF ("}", 301); } //end CONTEXT_DATA
+  DXF_OR_PRINT { VALUE_TFF ("}", 301); } //end CONTEXT_DATA
   // END MLEADER_AnnotContext
 
   FIELD_BL (flags, 90); // override flags
@@ -5328,20 +5519,21 @@ DWG_ENTITY(MULTILEADER)
     {
       FIELD_BL (num_arrowheads, 0);
       REPEAT(num_arrowheads, arrowheads, Dwg_LEADER_ArrowHead)
-        {
-          FIELD_BL (arrowheads->is_default, 94);
-          FIELD_HANDLE (arrowheads->arrowhead, 5, 345);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_BL (arrowheads[rcount1],is_default, 94);
+          SUB_FIELD_HANDLE (arrowheads[rcount1],arrowhead, 5, 345);
+      END_REPEAT_BLOCK
       SET_PARENT_OBJ(arrowheads)
       END_REPEAT(arrowheads);
+
       FIELD_BL (num_blocklabels, 0);
       REPEAT(num_blocklabels, blocklabels, Dwg_LEADER_BlockLabel)
-        {
-          FIELD_HANDLE (blocklabels->attdef, 4, 330);
-          FIELD_T (blocklabels->label_text, 302);
-          FIELD_BS (blocklabels->ui_index, 177);
-          FIELD_BD (blocklabels->width, 44);
-        }
+      REPEAT_BLOCK
+          SUB_FIELD_HANDLE (blocklabels[rcount1],attdef, 4, 330);
+          SUB_FIELD_T (blocklabels[rcount1],label_text, 302);
+          SUB_FIELD_BS (blocklabels[rcount1],ui_index, 177);
+          SUB_FIELD_BD (blocklabels[rcount1],width, 44);
+      END_REPEAT_BLOCK
       SET_PARENT_OBJ(blocklabels)
       END_REPEAT(blocklabels);
       FIELD_B (neg_textdir, 294);
@@ -5363,15 +5555,19 @@ DWG_ENTITY(MULTILEADER)
   COMMON_ENTITY_HANDLE_DATA;
   // wrong documentation in the ODA. the handles are at the end.
   _REPEAT_N(_obj->ctx.num_leaders, ctx.leaders, Dwg_LEADER, 1)
-    {
+  REPEAT_BLOCK
       #define lnode ctx.leaders[rcount1]
       _REPEAT_N(_obj->lnode.num_lines, lnode.lines, Dwg_LEADER_Line, 2)
-        {
+      REPEAT_BLOCK
           #define lline lnode.lines[rcount2]
-          FIELD_HANDLE (lline.ltype, 5, 340);
-          FIELD_HANDLE (lline.arrow_handle, 5, 341);
-        }
-    }
+          SUB_FIELD_HANDLE (lline,ltype, 5, 340);
+          SUB_FIELD_HANDLE (lline,arrow_handle, 5, 341);
+      END_REPEAT_BLOCK
+      SET_PARENT(lnode.lines, _obj->ctx.leaders)
+      END_REPEAT(lnode.lines)
+  END_REPEAT_BLOCK
+  SET_PARENT_OBJ(ctx.leaders)
+  END_REPEAT(ctx.leaders)
   FIELD_HANDLE (ctx.content.txt.style, 5, 340);
   FIELD_HANDLE (mleaderstyle, 5, 340);
   FIELD_HANDLE (ltype, 5, 341);
@@ -5458,12 +5654,12 @@ DWG_OBJECT_END
 
 DWG_OBJECT(WIPEOUTVARIABLES)
 
-  DXF { FIELD_HANDLE (parenthandle, 3, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 3, 330); }
   SUBCLASS (AcDbWipeoutVariables)
   FIELD_BS (display_frame, 0);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -5573,7 +5769,7 @@ DWG_ENTITY_END
 DWG_OBJECT(PERSSUBENTMANAGER)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbPersSubentManager)
   FIELD_BL (class_version, 90); //2
   FIELD_BL (unknown_bl1, 90); //0
@@ -5584,7 +5780,7 @@ DWG_OBJECT(PERSSUBENTMANAGER)
   FIELD_BL (unknown_bl6, 90); //1
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 DWG_OBJECT_END
@@ -5595,12 +5791,12 @@ DWG_OBJECT_END
 DWG_OBJECT(UNDERLAYDEFINITION)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS(AcDbUnderlayDefinition)
   FIELD_T (filename, 1);
   FIELD_T (name, 2);
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 
@@ -5637,7 +5833,7 @@ DWG_ENTITY_END
 DWG_OBJECT(ASSOCDEPENDENCY)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbAssocDependency)
   FIELD_BL (class_version, 90); //2
   FIELD_BL (status, 90); //1 or depbody
@@ -5650,7 +5846,7 @@ DWG_OBJECT(ASSOCDEPENDENCY)
   FIELD_BL (depbodyid, 90); //1
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   FIELD_HANDLE (owner, 4, 330); // => e.g. SURFACE linked to polygon
   REACTORS(4);
   XDICOBJHANDLE(3);
@@ -5666,7 +5862,7 @@ DWG_OBJECT_END
 // summary: 78/98=79.59%
 DWG_OBJECT(ASSOCPLANESURFACEACTIONBODY)
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbAssocActionBody)
   FIELD_BL (aab_status, 90); //1 or ownerid?
   SUBCLASS (AcDbAssocParamBasedActionBody)
@@ -5687,7 +5883,7 @@ DWG_OBJECT(ASSOCPLANESURFACEACTIONBODY)
   FIELD_BL (psab_status, 90);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   FIELD_HANDLE (writedep, 0, 360);
@@ -5699,31 +5895,36 @@ DWG_OBJECT_END
 DWG_OBJECT(DIMASSOC)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS(AcDbDimAssoc)
   FIELD_BL (associativity, 90);
   FIELD_RC (trans_space_flag, 70);
   REPEAT_CN(4, ref, Dwg_DIMASSOC_Ref)
-    { // 0 1 2 3 => 1 2 4 8
-      if (!(FIELD_VALUE(associativity) & (1<<rcount1)))
+  REPEAT_BLOCK
+      // 0 1 2 3 => 1 2 4 8
+      if (!(FIELD_VALUE(associativity) & (1<<rcount1))) {
+#ifdef IS_JSON
+        ENDHASH;
+#endif
         continue;
-      FIELD_B  (ref[rcount1].has_lastpt_ref, 75);
-      FIELD_T  (ref[rcount1].classname, 1); // "AcDbOsnapPointRef"
-      FIELD_RC (ref[rcount1].osnap_type, 72);
-      FIELD_BS (ref[rcount1].main_subent_type, 73);
-      FIELD_BS (ref[rcount1].intsect_subent_type, 74);
-      FIELD_BS (ref[rcount1].rotated_type, 71);
-      FIELD_BL (ref[rcount1].main_gsmarker, 91);
-      FIELD_BD (ref[rcount1].osnap_dist, 40);
-      FIELD_3BD(ref[rcount1].osnap_pt, 10);
-    }
+      }
+      SUB_FIELD_B  (ref[rcount1], has_lastpt_ref, 75);
+      SUB_FIELD_T  (ref[rcount1], classname, 1); // "AcDbOsnapPointRef"
+      SUB_FIELD_RC (ref[rcount1], osnap_type, 72);
+      SUB_FIELD_BS (ref[rcount1], main_subent_type, 73);
+      SUB_FIELD_BS (ref[rcount1], intsect_subent_type, 74);
+      SUB_FIELD_BS (ref[rcount1], rotated_type, 71);
+      SUB_FIELD_BL (ref[rcount1], main_gsmarker, 91);
+      SUB_FIELD_BD (ref[rcount1], osnap_dist, 40);
+      SUB_FIELD_3BD(ref[rcount1], osnap_pt, 10);
+  END_REPEAT_BLOCK
   SET_PARENT_OBJ(ref)
   END_REPEAT(ref)
   //FIELD_BL (intsect_gsmarker, 92);
 
   START_HANDLE_STREAM;
   UNTIL(R_2004) { DEBUG_POS_OBJ }
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   FIELD_HANDLE (dimensionobj, 4, 330);
@@ -5739,7 +5940,7 @@ DWG_OBJECT_END
 DWG_OBJECT(VISUALSTYLE)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbVisualStyle)
   FIELD_T (desc, 2);
   FIELD_BS (type, 70);
@@ -5784,7 +5985,7 @@ DWG_OBJECT(VISUALSTYLE)
 #endif
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 0);
+  FIELD_HANDLE (ownerhandle, 4, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   //FIELD_HANDLE (dictionary, 5, 0);
@@ -5853,14 +6054,14 @@ DWG_ENTITY_END
 DWG_OBJECT(DYNAMICBLOCKPURGEPREVENTER)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 5, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 5, 330); }
   SUBCLASS (AcDbDynamicBlockPurgePreventer)
   FIELD_BS (flag, 70); //1 class_version would be 90
   FIELD_RS (unknown_rs1, 0);
 
   START_HANDLE_STREAM;
   REACTORS(4); // BLOCK_HEADER
-  FIELD_HANDLE (parenthandle, 5, 0); // dict
+  FIELD_HANDLE (ownerhandle, 5, 0); // dict
   XDICOBJHANDLE(3);
 DWG_OBJECT_END
 
@@ -5868,7 +6069,7 @@ DWG_OBJECT_END
 DWG_OBJECT(DBCOLOR)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 3, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 3, 330); }
   SUBCLASS (AcDbColor)
   FIELD_BL (class_version, 0); //0
 #if 0
@@ -5896,7 +6097,7 @@ DWG_OBJECT(DBCOLOR)
   FIELD_T (catalog, 0); //1st part of 430: DIC COLOR GUIDE(R)
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 DWG_OBJECT_END
@@ -5959,20 +6160,22 @@ DWG_ENTITY(HELIX)
   if (FIELD_VALUE(scenario) & 1) {
     FIELD_VECTOR(knots, BD, num_knots, 40)
     REPEAT(num_ctrl_pts, ctrl_pts, Dwg_SPLINE_control_point)
-      {
-        FIELD_3BD (ctrl_pts[rcount1], 10);
+    REPEAT_BLOCK
+        SUB_FIELD_3BD_inl (ctrl_pts[rcount1], xyz, 10);
         if (!FIELD_VALUE(weighted))
           FIELD_VALUE(ctrl_pts[rcount1].w) = 0; // skipped when encoding
         else
-          FIELD_BD (ctrl_pts[rcount1].w, 41);
-      }
+          SUB_FIELD_BD (ctrl_pts[rcount1], w, 41);
+    END_REPEAT_BLOCK
+    SET_PARENT(ctrl_pts, (Dwg_Entity_SPLINE*)_obj);
     END_REPEAT(ctrl_pts);
   }
   if (FIELD_VALUE(scenario) & 2) {
     REPEAT(num_fit_pts, fit_pts, Dwg_SPLINE_point)
-      {
-        FIELD_3BD (fit_pts[rcount1], 11);
-      }
+    REPEAT_BLOCK
+        SUB_FIELD_3BD_inl (fit_pts[rcount1], xyz, 11);
+    END_REPEAT_BLOCK
+    SET_PARENT(fit_pts, (Dwg_Entity_SPLINE*)_obj);
     END_REPEAT(fit_pts);
   }
 
@@ -5992,7 +6195,7 @@ DWG_ENTITY_END
 
 /* In work area:
    The following entities/objects are only stored as raw UNKNOWN_ENT/OBJ,
-   unless enabled via -DDEBUG_CLASSES */
+   unless enabled via --enable-debug/-DDEBUG_CLASSES */
 
 #ifdef DEBUG_CLASSES
 
@@ -6000,7 +6203,7 @@ DWG_ENTITY_END
 DWG_OBJECT(EVALUATION_GRAPH)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS(AcDbEvalGraph)
   FIELD_BL(has_graph, 96);        // 1
   FIELD_BL(unknown1, 97);         // 1
@@ -6020,7 +6223,7 @@ DWG_OBJECT(EVALUATION_GRAPH)
     }
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   HANDLE_VECTOR(evalexpr, num_evalexpr, 5, 360);
   //FIELD_HANDLE (evalexpr, 5, 360); // VECTOR?
   REACTORS(4);
@@ -6047,7 +6250,7 @@ DWG_OBJECT(ASSOCALIGNEDDIMACTIONBODY)
 
   //TODO: DXF has a different order
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 4, 330);
+  FIELD_HANDLE (ownerhandle, 4, 330);
   REACTORS(4);
   XDICOBJHANDLE(3);
   VERSION (R_2013) {
@@ -6285,7 +6488,7 @@ DWG_OBJECT_END
 DWG_OBJECT(SUN)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS(AcDbSun)
   FIELD_BL (class_version, 90); //1
   if (FIELD_VALUE(class_version) > 10)
@@ -6346,10 +6549,10 @@ DWG_OBJECT(SUN)
       DEBUG_POS_OBJ
       // @9979.6 5.0.0, @9980.0 4.0.0, @9991.1 3.0.0
       // search for a valid code=4 handle followed by a valid code=3
-      FIELD_HANDLE(parenthandle, 4, 330);
-      if (_obj->parenthandle &&
-          _obj->parenthandle->handleref.code == 4 &&
-          _obj->parenthandle->absolute_ref < dwg->num_object_refs)
+      FIELD_HANDLE(ownerhandle, 4, 330);
+      if (_obj->ownerhandle &&
+          _obj->ownerhandle->handleref.code == 4 &&
+          _obj->ownerhandle->absolute_ref < dwg->num_object_refs)
         {
           //reactors also 4. could check num_reactors
           FIELD_HANDLE(xdicobjhandle, 3, 0);
@@ -6364,7 +6567,7 @@ DWG_OBJECT(SUN)
     }
 #endif
 
-  FIELD_HANDLE (parenthandle, 4, 0); //DXF 330
+  FIELD_HANDLE (ownerhandle, 4, 0); //DXF 330
   FIELD_CMC (color, 63,421);
 
   START_HANDLE_STREAM;
@@ -6379,7 +6582,7 @@ DWG_OBJECT_END
 DWG_OBJECT(SUNSTUDY)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS(AcDbSunStudy)
   FIELD_BL (class_version, 90);
   if (FIELD_VALUE(class_version) > 10)
@@ -6396,10 +6599,10 @@ DWG_OBJECT(SUNSTUDY)
   FIELD_B (select_dates_from_calendar, 291);
   FIELD_BL (num_dates, 91);
   REPEAT(num_dates, dates, Dwg_SUNSTUDY_Dates)
-   {
-     FIELD_BL (dates[rcount1].julian_day, 90);
-     FIELD_BL (dates[rcount1].time, 90);
-   }
+  REPEAT_BLOCK
+    SUB_FIELD_BL (dates[rcount1], julian_day, 90);
+    SUB_FIELD_BL (dates[rcount1], time, 90);
+  END_REPEAT_BLOCK
   END_REPEAT(dates);
   FIELD_B (select_range_of_dates, 292);
   if (FIELD_VALUE(select_range_of_dates))
@@ -6420,7 +6623,7 @@ DWG_OBJECT(SUNSTUDY)
   FIELD_B (label_viewports, 294);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   FIELD_HANDLE (page_setup_wizard, 5, 340);
   FIELD_HANDLE (view, 5, 341);
   FIELD_HANDLE (visual_style, 2, 342);
@@ -6713,7 +6916,7 @@ DWG_OBJECT_END
 // See AcDbAssocPersSubentIdPE.h?
 DWG_OBJECT(ASSOCPERSSUBENTMANAGER)
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbAssocPersSubentManager)
   FIELD_BL (class_version, 90); //1
   FIELD_BL (unknown_bl1, 90); //3
@@ -6758,7 +6961,7 @@ DWG_OBJECT(ASSOCPERSSUBENTMANAGER)
   FIELD_B  (unknown_b37, 290); //0
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 DWG_OBJECT_END
@@ -6807,7 +7010,7 @@ DWG_OBJECT(ASSOC2DCONSTRAINTGROUP)
   // ...
   /*
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
   */
@@ -6868,7 +7071,7 @@ DWG_OBJECT_END
 DWG_OBJECT(ACDBNAVISWORKSMODELDEF)
 
   DECODE_UNKNOWN_BITS
-  DXF { FIELD_HANDLE (parenthandle, 4, 330); }
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbNavisworksModelDef)
   DEBUG_HERE_OBJ
   FIELD_T (path, 1);
@@ -6878,7 +7081,7 @@ DWG_OBJECT(ACDBNAVISWORKSMODELDEF)
   FIELD_B (host_drawing_visibility, 290);
 
   START_HANDLE_STREAM;
-  FIELD_HANDLE (parenthandle, 3, 0);
+  FIELD_HANDLE (ownerhandle, 3, 0);
   REACTORS(4);
   XDICOBJHANDLE(3);
 

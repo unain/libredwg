@@ -94,21 +94,23 @@ DWG_GET_ENTITY(LWPOLYLINE)
 DWG_GET_ENTITY(HATCH)
 
 //untyped >500:
-//DWG_GET_ENTITY(ARC_DIMENSION)
 DWG_GET_ENTITY(IMAGE)
 DWG_GET_ENTITY(CAMERA)
+DWG_GET_ENTITY(HELIX)
+DWG_GET_ENTITY(LIGHT)
+DWG_GET_ENTITY(MULTILEADER)
+DWG_GET_ENTITY(UNDERLAY)
+DWG_GET_ENTITY(WIPEOUT)
+#ifdef DEBUG_CLASSES
+DWG_GET_ENTITY(TABLE)
 DWG_GET_ENTITY(PLANESURFACE)
+DWG_GET_ENTITY(GEOPOSITIONMARKER)
 DWG_GET_ENTITY(EXTRUDEDSURFACE)
 DWG_GET_ENTITY(LOFTEDSURFACE)
 DWG_GET_ENTITY(REVOLVEDSURFACE)
 DWG_GET_ENTITY(SWEPTSURFACE)
-DWG_GET_ENTITY(GEOPOSITIONMARKER)
-DWG_GET_ENTITY(HELIX)
-DWG_GET_ENTITY(LIGHT)
-DWG_GET_ENTITY(MULTILEADER)
-DWG_GET_ENTITY(TABLE)
-DWG_GET_ENTITY(UNDERLAY)
-DWG_GET_ENTITY(WIPEOUT)
+#endif
+//DWG_GET_ENTITY(ARC_DIMENSION)
 
 /********************************************************************
  *     Functions to return NULL-terminated array of all objects     *
@@ -174,7 +176,7 @@ DWG_GET_OBJECT(OBJECT_PTR)
 DWG_GET_OBJECT(PERSSUBENTMANAGER)
 DWG_GET_OBJECT(UNDERLAYDEFINITION)
 DWG_GET_OBJECT(VISUALSTYLE)
-// debugging:
+#ifdef DEBUG_CLASSES
 DWG_GET_OBJECT(TABLECONTENT)
 DWG_GET_OBJECT(TABLEGEOMETRY)
 DWG_GET_OBJECT(CELLSTYLEMAP)
@@ -204,13 +206,14 @@ DWG_GET_OBJECT(EVALUATION_GRAPH)
 //DWG_GET_OBJECT(LAYER_FILTER)
 //DWG_GET_OBJECT(LAYOUTPRINTCONFIG)
 //DWG_GET_OBJECT(LEADEROBJECTCONTEXTDATA)
-DWG_GET_OBJECT(LIGHTLIST)
+//DWG_GET_OBJECT(LIGHTLIST)
 //DWG_GET_OBJECT(NPOCOLLECTION)
 //DWG_GET_OBJECT(POINTCLOUD)
 //DWG_GET_OBJECT(RTEXT)
 //DWG_GET_OBJECT(SECTIONVIEWSTYLE)
 //DWG_GET_OBJECT(TABLESTYLE)
 //DWG_GET_OBJECT(XREFPANELOBJECT)
+#endif
 
 /*******************************************************************
  *     Functions created from macro to cast dwg_object to entity     *
@@ -268,19 +271,20 @@ CAST_DWG_OBJECT_TO_ENTITY(HATCH)
 //untyped >500:
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(IMAGE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(CAMERA)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(HELIX)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(LIGHT)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(MULTILEADER)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(UNDERLAY)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(WIPEOUT)
+#ifdef DEBUG_CLASSES
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(TABLE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(PLANESURFACE)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME(GEOPOSITIONMARKER)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(EXTRUDEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(LOFTEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(REVOLVEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME(SWEPTSURFACE)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(GEOPOSITIONMARKER)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(HELIX)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(LIGHT)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(MULTILEADER)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(TABLE)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(UNDERLAY)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME(WIPEOUT)
-
+#endif
 
 /*******************************************************************
  *     Functions created from macro to cast dwg object to object     *
@@ -333,11 +337,52 @@ CAST_DWG_OBJECT_TO_OBJECT(SPATIAL_INDEX)
 CAST_DWG_OBJECT_TO_OBJECT(VISUALSTYLE)
 CAST_DWG_OBJECT_TO_OBJECT(WIPEOUTVARIABLES)
 CAST_DWG_OBJECT_TO_OBJECT(ASSOCDEPENDENCY)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCPLANESURFACEACTIONBODY)
 CAST_DWG_OBJECT_TO_OBJECT(DIMASSOC)
+CAST_DWG_OBJECT_TO_OBJECT(DBCOLOR)
+CAST_DWG_OBJECT_TO_OBJECT(DYNAMICBLOCKPURGEPREVENTER)
 CAST_DWG_OBJECT_TO_OBJECT(GEODATA)
 CAST_DWG_OBJECT_TO_OBJECT(OBJECT_PTR)
 CAST_DWG_OBJECT_TO_OBJECT(PERSSUBENTMANAGER)
 CAST_DWG_OBJECT_TO_OBJECT(UNDERLAYDEFINITION)
+#ifdef DEBUG_CLASSES
+CAST_DWG_OBJECT_TO_OBJECT(TABLECONTENT)
+CAST_DWG_OBJECT_TO_OBJECT(TABLEGEOMETRY)
+CAST_DWG_OBJECT_TO_OBJECT(CELLSTYLEMAP)
+CAST_DWG_OBJECT_TO_OBJECT(MATERIAL)
+CAST_DWG_OBJECT_TO_OBJECT(PLOTSETTINGS)
+CAST_DWG_OBJECT_TO_OBJECT(SUN)
+CAST_DWG_OBJECT_TO_OBJECT(SUNSTUDY)
+CAST_DWG_OBJECT_TO_OBJECT(VBA_PROJECT)
+CAST_DWG_OBJECT_TO_OBJECT(ACSH_SWEEP_CLASS)
+CAST_DWG_OBJECT_TO_OBJECT(ACDBNAVISWORKSMODELDEF)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCACTION)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCNETWORK)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCALIGNEDDIMACTIONBODY)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCOSNAPPOINTREFACTIONPARAM)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOCPERSSUBENTMANAGER)
+CAST_DWG_OBJECT_TO_OBJECT(ASSOC2DCONSTRAINTGROUP)
+CAST_DWG_OBJECT_TO_OBJECT(EVALUATION_GRAPH)
+// unhandled:
+//CAST_DWG_OBJECT_TO_OBJECT(ACSH_HISTORY_CLASS)
+//CAST_DWG_OBJECT_TO_OBJECT(ARCALIGNEDTEXT)
+//CAST_DWG_OBJECT_TO_OBJECT(ASSOCGEOMDEPENDENCY)
+//CAST_DWG_OBJECT_TO_OBJECT(ASSOCOSNAPPOINTREFACTIONPARAM)
+//CAST_DWG_OBJECT_TO_OBJECT(ASSOCVERTEXACTIONPARAM)
+//CAST_DWG_OBJECT_TO_OBJECT(DATATABLE)
+//CAST_DWG_OBJECT_TO_OBJECT(DETAILVIEWSTYLE)
+//CAST_DWG_OBJECT_TO_OBJECT(DOCUMENTOPTIONS)
+//CAST_DWG_OBJECT_TO_OBJECT(LAYER_FILTER)
+//CAST_DWG_OBJECT_TO_OBJECT(LAYOUTPRINTCONFIG)
+//CAST_DWG_OBJECT_TO_OBJECT(LEADEROBJECTCONTEXTDATA)
+//CAST_DWG_OBJECT_TO_OBJECT(LIGHTLIST)
+//CAST_DWG_OBJECT_TO_OBJECT(NPOCOLLECTION)
+//CAST_DWG_OBJECT_TO_OBJECT(POINTCLOUD)
+//CAST_DWG_OBJECT_TO_OBJECT(RTEXT)
+//CAST_DWG_OBJECT_TO_OBJECT(SECTIONVIEWSTYLE)
+//CAST_DWG_OBJECT_TO_OBJECT(TABLESTYLE)
+//CAST_DWG_OBJECT_TO_OBJECT(XREFPANELOBJECT)
+#endif
 
 /*******************************************************************
  *                FUNCTIONS START HERE ENTITY SPECIFIC               *
@@ -5050,7 +5095,7 @@ dwg_ent_minsert_get_block_header(const dwg_ent_minsert *restrict minsert,
 *                FUNCTIONS FOR MLINESTYLE OBJECT                    *
 ********************************************************************/
 
-/** Returns the  _dwg_entity_MLINESTYLE::entry_name, DXF 2 (utf-8 encoded)
+/** Returns the  _dwg_entity_MLINESTYLE::name, DXF 2 (utf-8 encoded)
 \code Usage: char * name = dwg_obj_mlinestyle_get_name(mlinestyle, &error);
 \endcode
 \param[in]  mlinestyle dwg_obj_mlinestyle
@@ -5064,9 +5109,9 @@ dwg_obj_mlinestyle_get_name(const dwg_obj_mlinestyle *restrict mlinestyle,
     {
       *error = 0;
       if (dwg_version >= R_2007)
-        return bit_convert_TU((BITCODE_TU)mlinestyle->entry_name);
+        return bit_convert_TU((BITCODE_TU)mlinestyle->name);
       else
-        return mlinestyle->entry_name;
+        return mlinestyle->name;
     }
   else
     {
@@ -5076,7 +5121,7 @@ dwg_obj_mlinestyle_get_name(const dwg_obj_mlinestyle *restrict mlinestyle,
     }
 }
 
-/** Sets the _dwg_entity_MLINESTYLE::entry_name
+/** Sets the _dwg_entity_MLINESTYLE::name
 \code Usage: dwg_obj_mlinestyle_set_name(minsert, "mstylename", &error);
 \endcode
 \param[out] mlinestyle dwg_obj_mlinestyle
@@ -5092,9 +5137,9 @@ dwg_obj_mlinestyle_set_name(dwg_obj_mlinestyle *restrict mlinestyle,
     {
       *error = 0;
       if (dwg_version >= R_2007)
-        mlinestyle->entry_name = (char*)bit_utf8_to_TU((char*)name);
+        mlinestyle->name = (char*)bit_utf8_to_TU((char*)name);
       else
-        mlinestyle->entry_name = (char*)name;
+        mlinestyle->name = (char*)name;
     }
   else
     {
@@ -5376,7 +5421,7 @@ dwg_obj_appid_control_get_appid(const dwg_obj_appid_control *restrict appid,
 *                    FUNCTIONS FOR APPID OBJECT                     *
 ********************************************************************/
 
-/** Returns the _dwg_entity_APPID::entry_name, DXF 2. (utf-8 encoded)
+/** Returns the _dwg_entity_APPID::name, DXF 2. (utf-8 encoded)
 \code Usage: char * name = dwg_obj_appid_get_name(mlinestyle, &error);
 \endcode
 \param[in]  appid  dwg_obj_appid
@@ -5390,9 +5435,9 @@ dwg_obj_appid_get_name(const dwg_obj_appid *restrict appid,
     {
       *error = 0;
       if (dwg_version >= R_2007)
-        return bit_convert_TU((BITCODE_TU)appid->entry_name);
+        return bit_convert_TU((BITCODE_TU)appid->name);
       else
-        return appid->entry_name;
+        return appid->name;
     }
   else
     {
@@ -5494,7 +5539,7 @@ dwg_ent_dim_get_block_name(const dwg_ent_dim *restrict dim,
   if (dim)
     {
       char *name = ((dwg_ent_dim_linear *)dim)->
-                     block->obj->tio.object->tio.BLOCK_HEADER->entry_name;
+                     block->obj->tio.object->tio.BLOCK_HEADER->name;
       *error = 0;
       if (dwg_version >= R_2007)
         return bit_convert_TU((BITCODE_TU)name);
@@ -6335,23 +6380,23 @@ dwg_ent_dim_ordinate_set_flag2(dwg_ent_dim_ordinate *restrict dim,
 }
 
 /** Sets the 10 ucsorigin point
-\code Usage: dwg_ent_dim_ordinate_set_ucsorigin_pt(dim, &point, &error);
+\code Usage: dwg_ent_dim_ordinate_set_def_pt(dim, &point, &error);
 \endcode
 \param[in] dim_ordinate dwg_ent_dim_ordinate*
 \param[out] dwg_point_3d
 \param[out] error   int*, is set to 0 for ok, 1 on error
 */
 void
-dwg_ent_dim_ordinate_set_ucsorigin_pt(dwg_ent_dim_ordinate *restrict dim,
+dwg_ent_dim_ordinate_set_def_pt(dwg_ent_dim_ordinate *restrict dim,
                                       const dwg_point_3d *restrict point,
                                       int *restrict error)
 {
   if (dim && point)
     {
       *error = 0;
-      dim->ucsorigin_pt.x = point->x;
-      dim->ucsorigin_pt.y = point->y;
-      dim->ucsorigin_pt.z = point->z;
+      dim->def_pt.x = point->x;
+      dim->def_pt.y = point->y;
+      dim->def_pt.z = point->z;
     }
   else
     {
@@ -6360,24 +6405,24 @@ dwg_ent_dim_ordinate_set_ucsorigin_pt(dwg_ent_dim_ordinate *restrict dim,
     }
 }
 
-/** Returns the 10 ucsorigin point
-\code Usage: dwg_ent_dim_ordinate_get_ucsorigin_pt(dim, &point, &error);
+/** Returns the 10 def point (ucsorigin)
+\code Usage: dwg_ent_dim_ordinate_get_def_pt(dim, &point, &error);
 \endcode
 \param[in] dim_ordinate dwg_ent_dim_ordinate*
 \param[out] dwg_point_3d
 \param[out] error   int*, is set to 0 for ok, 1 on error
 */
 void
-dwg_ent_dim_ordinate_get_ucsorigin_pt(const dwg_ent_dim_ordinate *restrict dim,
+dwg_ent_dim_ordinate_get_def_pt(const dwg_ent_dim_ordinate *restrict dim,
                                       dwg_point_3d *restrict point,
                                       int *restrict error)
 {
   if (dim && point)
     {
       *error = 0;
-      point->x = dim->ucsorigin_pt.x;
-      point->y = dim->ucsorigin_pt.y;
-      point->z = dim->ucsorigin_pt.z;
+      point->x = dim->def_pt.x;
+      point->y = dim->def_pt.y;
+      point->z = dim->def_pt.z;
     }
   else
     {
@@ -9946,13 +9991,13 @@ dwg_obj_proxy_set_data(dwg_obj_proxy *restrict proxy,
 }
 
 dwg_object_ref*
-dwg_obj_proxy_get_parenthandle(const dwg_obj_proxy *restrict proxy,
+dwg_obj_proxy_get_ownerhandle(const dwg_obj_proxy *restrict proxy,
                                int *restrict error)
 {
   if (proxy)
     {
       *error = 0;
-      return proxy->parenthandle;
+      return proxy->ownerhandle;
     }
   else
     {
@@ -10087,13 +10132,13 @@ dwg_obj_xrecord_set_xdata(dwg_obj_xrecord *restrict xrecord,
 }
 
 dwg_object_ref*
-dwg_obj_xrecord_get_parenthandle(const dwg_obj_xrecord *restrict xrecord,
+dwg_obj_xrecord_get_ownerhandle(const dwg_obj_xrecord *restrict xrecord,
                                  int *restrict error)
 {
   if (xrecord)
     {
       *error = 0;
-      return xrecord->parenthandle;
+      return xrecord->ownerhandle;
     }
   else
     {
@@ -12741,16 +12786,16 @@ dwg_ent_polyline_3d_set_flag(dwg_ent_polyline_3d *restrict pline3d,
     }
 }
 
-/** Returns polyline 3d flag2
+/** Returns polyline 3d curve_type
  */
 BITCODE_RC
-dwg_ent_polyline_3d_get_flag2(const dwg_ent_polyline_3d *restrict pline3d,
-                              int *restrict error)
+dwg_ent_polyline_3d_get_curve_type(const dwg_ent_polyline_3d *restrict pline3d,
+                                   int *restrict error)
 {
   if (pline3d)
     {
       *error = 0;
-      return pline3d->flag2;
+      return pline3d->curve_type;
     }
   else
     {
@@ -12760,17 +12805,17 @@ dwg_ent_polyline_3d_get_flag2(const dwg_ent_polyline_3d *restrict pline3d,
     }
 }
 
-/** Sets polyline 3d flag2
+/** Sets polyline 3d curve_type
  */
 void
-dwg_ent_polyline_3d_set_flag2(dwg_ent_polyline_3d *restrict pline3d,
-                              const BITCODE_RC flag2,
-                              int *restrict error)
+dwg_ent_polyline_3d_set_curve_type(dwg_ent_polyline_3d *restrict pline3d,
+                                   const BITCODE_RC curve_type,
+                                   int *restrict error)
 {
   if (pline3d)
     {
       *error = 0;
-      pline3d->flag2 = flag2;
+      pline3d->curve_type = curve_type;
     }
   else
     {
@@ -18043,9 +18088,9 @@ dwg_obj_block_header_get_name(const dwg_obj_block_header *restrict hdr,
     {
       *error = 0;
       if (dwg_version >= R_2007)
-        return bit_convert_TU((BITCODE_TU)hdr->entry_name);
+        return bit_convert_TU((BITCODE_TU)hdr->name);
       else
-        return hdr->entry_name;
+        return hdr->name;
     }
   else
     {
@@ -18096,9 +18141,9 @@ dwg_get_block_header(dwg_data *restrict dwg,
           return NULL;
         }
       blk = obj->tio.object->tio.BLOCK_HEADER;
-      if (!strcmp(blk->entry_name, "*Paper_Space"))
+      if (!strcmp(blk->name, "*Paper_Space"))
         dwg->pspace_block = obj;
-      else if (!strcmp(blk->entry_name, "*Model_Space"))
+      else if (!strcmp(blk->name, "*Model_Space"))
         dwg->mspace_block = obj;
       return blk;
     }
@@ -18128,9 +18173,9 @@ dwg_obj_layer_get_name(const dwg_obj_layer *restrict layer,
     {
       *error = 0;
       if (dwg_version >= R_2007)
-        return bit_convert_TU((BITCODE_TU)layer->entry_name);
+        return bit_convert_TU((BITCODE_TU)layer->name);
       else
-        return layer->entry_name;
+        return layer->name;
     }
   else
     {
@@ -18359,15 +18404,15 @@ dwg_obj_table_get_name(const dwg_object *restrict obj,
       obj->supertype == DWG_SUPERTYPE_OBJECT &&
       (dwg_obj_is_table(obj) || obj->type == DWG_TYPE_DICTIONARY))
     {
-      // HACK: we can guarantee that the table entry_name is always the first field,
+      // HACK: we can guarantee that the table name is always the first field,
       // by using COMMON_TABLE_FLAGS.
       // TODO: Dictionary also?
       Dwg_Object_STYLE *table = obj->tio.object->tio.STYLE;
       *error = 0;
       if (obj->parent->header.version >= R_2007)
-        return bit_convert_TU((BITCODE_TU)table->entry_name); //creates a copy
+        return bit_convert_TU((BITCODE_TU)table->name); //creates a copy
       else
-        return table->entry_name;
+        return table->name;
     }
   else
     {
@@ -18537,10 +18582,10 @@ dwg_ent_get_picture(const dwg_obj_ent *restrict ent,
 }
 
 EXPORT BITCODE_BB
-dwg_ent_get_entity_mode(const dwg_obj_ent *restrict ent,
+dwg_ent_get_entmode(const dwg_obj_ent *restrict ent,
                           int *restrict error)
 {
-  _BODY_FIELD(ent, entity_mode);
+  _BODY_FIELD(ent, entmode);
 }
 
 EXPORT BITCODE_BL
@@ -18635,18 +18680,18 @@ dwg_ent_get_invisible(const dwg_obj_ent *restrict ent,
 }
 
 EXPORT BITCODE_RC
-dwg_ent_get_lineweight(const dwg_obj_ent *restrict ent,
-                          int *restrict error) //r2000+
+dwg_ent_get_linewt(const dwg_obj_ent *restrict ent,
+                   int *restrict error) //r2000+
 {
-  _BODY_FIELD(ent, lineweight);
+  _BODY_FIELD(ent, linewt);
 }
 
 //TODO: dwg_object_ref* or dwg_handle*, not handle
 EXPORT dwg_object_ref *
-dwg_ent_get_subentity(const dwg_obj_ent *restrict ent,
+dwg_ent_get_ownerhandle(const dwg_obj_ent *restrict ent,
                           int *restrict error)
 {
-  _BODY_FIELD(ent, subentity);
+  _BODY_FIELD(ent, ownerhandle);
 }
 
 EXPORT dwg_object_ref **

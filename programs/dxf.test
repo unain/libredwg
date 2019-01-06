@@ -1,0 +1,187 @@
+#!/bin/sh
+# dxf.test
+#
+# Copyright (C) 2018 Free Software Foundation, Inc.
+#
+# This program is free software, licensed under the terms of the GNU
+# General Public License as published by the Free Software Foundation,
+# either version 3 of the License, or (at your option) any later version.
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# test DXF specific content
+# Author: Reini Urban
+
+if [ -d test/test-data ]; then cd ..; fi
+datadir=${datadir:-../test/test-data}
+problems=0
+rm -f *dxf.log
+
+check_subentity() {
+    if [ -f "$dwg" ] && [ -f "$dxf" ]; then
+        ../libtool --mode=execute ./dwg2dxf -v4 -o "$tgt" "$dwg" 2>/dev/null
+        grep -A8 ^VERTEX "$dxf" >tmp1
+        grep -A8 ^VERTEX "$tgt" >tmp2
+        d="$(diff -b tmp1 tmp2)"
+        test -z "$d" || echo VERTEX "$tgt" $d
+        grep -A8 ^SEQEND "$dxf" >tmp1
+        grep -A8 ^SEQEND "$tgt" >tmp2
+        d="$(diff -b tmp1 tmp2)"
+        test -z "$d" || echo SEQEND "$tgt" $d
+        grep -A8 ^POLYLINE "$dxf" >tmp1
+        grep -A8 ^POLYLINE "$tgt" >tmp2
+        d="$(diff -b tmp1 tmp2)"
+        test -z "$d" || echo POLYLINE "$tgt" $d
+        rm tmp1 tmp2
+#   else
+#       echo skip $dxf missing
+    fi
+}
+
+# check subentity owners
+for year in r14 2000 2004 2007 2010 2013 2018
+do
+    for base in PolyLine3D PolyLine2D
+    do
+        dwg=$datadir/${year}/${base}.dwg
+        dxf=$datadir/${year}/${base}.dxf
+        tgt=../${base}_${year}.dxf
+        check_subentity
+    done
+done
+for year in r14 2000 2004 2007 2010 2013 2018
+do
+    for base in example Drawing
+    do
+        dwg=$datadir/${base}_${year}.dwg
+        dxf=$datadir/${base}_${year}.dxf
+        tgt=../${base}_${year}.dxf
+        check_subentity
+    done
+done
+
+check_acdb_dxfname() {
+    if [ -f "$dwg" ] && [ -f $dxf ]; then
+        ../libtool --mode=execute ./dwg2dxf -v0 -o "$tgt" "$dwg" 2>/dev/null >/dev/null
+        expect=$(grep -c ^$dxfname "$dxf")
+        got=$(grep -c ^$dxfname "$tgt")
+        if [ $got = $expect ]
+        then
+            echo "$tgt" $dxfname ok
+        else
+            echo "$tgt" $dxfname fail: $got != $expect
+            problems=$(expr 1 + $problems)
+            grep -2 ^$dxfname "$tgt" >$log
+        fi
+    fi
+}
+
+# check handled ACDB* dxfname's
+# UNHANDLED: ACDBDETAILVIEWSTYLE ACDBSECTIONVIEWSTYLE
+for dwg in $datadir/sample_2*.dwg; do
+    dxf=$(echo "$dwg" | sed 's,.dwg,.dxf,')
+    tgt=../$(basename "$dxf")
+    log=$(basename "$tgt").log
+    rm "$log" 2>/dev/null
+    for dxfname in ACDBDICTIONARYWDFLT ACDBPLACEHOLDER LAYOUT
+    do
+        check_acdb_dxfname
+    done
+done
+for dwg in $datadir/example_*.dwg; do
+    dxf=$(echo "$dwg" | sed 's,.dwg,.dxf,')
+    tgt=../$(basename "$dxf")
+    log=$(basename "$tgt").log
+    rm "$log" 2>/dev/null
+    for dxfname in ACDBPERSSUBENTMANAGER ACDBASSOCDEPENDENCY
+    do
+        check_acdb_dxfname
+    done
+done
+for dwg in $datadir/2004/Underlay.dwg; do
+    dxf=$(echo "$dwg" | sed 's,.dwg,.dxf,')
+    tgt=../$(basename "$dxf" .dxf)_2004.dxf
+    log=$(basename "$tgt").log
+    rm "$log" 2>/dev/null
+    for dxfname in PDFDEFINITION PDFUNDERLAY
+    do
+        check_acdb_dxfname
+    done
+done
+
+# check vertex - seqend order
+check_pline_order() {
+    if [ -f "$dwg" ] && [ -f $dxf ]; then
+        ../libtool --mode=execute ./dwg2dxf -v0 -o "$tgt" "$dwg" 2>/dev/null >/dev/null
+        got=$(egrep '^(POLYLINE|VERTEX|SEQEND)' "$tgt")
+        expect=$(egrep '^(POLYLINE|VERTEX|SEQEND)' "$dxf")
+        if [ "$got" = "$expect" ]
+        then
+            echo "$tgt" pline order ok
+        else
+            echo "$tgt" pline order fail: "$got"
+            problems=$(expr 1 + $problems)
+            echo "expect=$expect" >$log
+            echo "got=$got" >>$log
+        fi
+    fi
+}
+# check insert - attrib - seqend order
+check_insert_order() {
+    if [ -f "$dwg" ] && [ -f $dxf ]; then
+        ../libtool --mode=execute ./dwg2dxf -v0 -o "$tgt" "$dwg" 2>/dev/null >/dev/null
+        got=$(egrep '^(INSERT|ATTRIB|SEQEND)' "$tgt")
+        expect=$(egrep '^(INSERT|ATTRIB|SEQEND)' "$dxf")
+        if [ "$got" = "$expect" ]
+        then
+            echo "$tgt" insert order ok
+        else
+            echo "$tgt" insert order fail: "$got"
+            problems=$(expr 1 + $problems)
+            echo "expect=$expect" >$log
+            echo "got=$got" >>$log
+        fi
+    fi
+}
+
+for year in 2007 2018
+do
+    base=PolyLine3D
+    dwg=$datadir/${year}/${base}.dwg
+    dxf=$datadir/2013/${base}.dxf
+    tgt=../${base}_${year}.dxf
+    log=$(basename "$tgt" .dxf)_pline.dxf.log
+    rm "$log" 2>/dev/null
+    check_pline_order
+done
+
+for year in 2000 2004 2007 2010 2013 2018
+do
+    base=example
+    dwg=$datadir/${base}_${year}.dwg
+    dxf=$datadir/${base}_${year}.dxf
+    tgt=../${base}_${year}.dxf
+    log=$(basename "$tgt" .dxf)_pline.dxf.log
+    rm "$log" 2>/dev/null
+    check_pline_order
+done
+
+for year in 2000 2004 2007 2010 2013 2018
+do
+    base=example
+    dwg=$datadir/${base}_${year}.dwg
+    dxf=$datadir/${base}_${year}.dxf
+    tgt=../${base}_${year}.dxf
+    log=$(basename "$tgt" .dxf)_insert.dxf.log
+    rm "$log" 2>/dev/null
+    check_insert_order
+done
+
+if test x0 = x$problems ; then
+    rm ./*.dxf.log 2>/dev/null
+    exit 0
+else
+    echo $(basename "$0"): $problems failures
+    ls -l ./*dxf.log
+    exit 1
+fi

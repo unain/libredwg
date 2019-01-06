@@ -222,7 +222,7 @@ bit_read_RL_tests (void)
   Bit_Chain bitchain = strtobt ("01111111" "11110111" "10111111" "01111101");
   BITCODE_RL result = bit_read_RL (&bitchain);
 
-  if (result == (BITCODE_RL)0x7dbff77f)
+  if (result == (BITCODE_RL)0x7DBFF77F)
       pass ("bit_read_RL");
   else
     fail ("bit_read_RL 0x%x", (unsigned)result);
@@ -273,6 +273,8 @@ main (int argc, char const *argv[])
   BITCODE_BD dbl;
   BITCODE_BL bl;
   BITCODE_BS bs;
+  BITCODE_MC mc;
+  BITCODE_UMC umc;
   unsigned long pos;
   long size;
   unsigned char sentinel[] =
@@ -313,18 +315,20 @@ main (int argc, char const *argv[])
     fail("bit_write_RD @%d.%d", bitchain.byte, bitchain.bit);
 
   bit_advance_position(&bitchain, -64);
-  if (bit_read_RD(&bitchain) == 0xBA43B7400)
+  bit_print(&bitchain, sizeof(double));
+  if ((dbl = bit_read_RD(&bitchain)) == 0xBA43B7400)
     pass("bit_read_RD");
   else
-    fail("bit_read_RD");
+    fail("bit_read_RD %g", dbl);
 
   bit_write_BS(&bitchain, 32767);
   if (bitchain.byte == 10 && bitchain.bit == 2)
     pass("bit_write_BS");
   else
     fail("bit_write_BS @%d.%d", bitchain.byte, bitchain.bit);
-  bit_advance_position(&bitchain, -18);
 
+  bit_advance_position(&bitchain, -18);
+  bit_print(&bitchain, 4);
   if ((bs = bit_read_BS(&bitchain)) == 32767)
     pass("bit_read_BS");
   else
@@ -338,6 +342,7 @@ main (int argc, char const *argv[])
     fail("bit_write_BS @%d.%d", bitchain.byte, bitchain.bit);
 
   bit_advance_position(&bitchain, -2);
+  bit_print(&bitchain, 1);
   if ((bs = bit_read_BS(&bitchain)) == 256)
     pass("bit_read_BS");
   else
@@ -350,6 +355,7 @@ main (int argc, char const *argv[])
     fail("bit_write_BL @%d.%d", bitchain.byte, bitchain.bit);
 
   bit_advance_position(&bitchain, -2);
+  bit_print(&bitchain, 1);
   if ((bl = bit_read_BL(&bitchain)) == 0)
     pass("bit_read_BL");
   else
@@ -363,24 +369,57 @@ main (int argc, char const *argv[])
     fail("bit_write_BD @%d.%d", bitchain.byte, bitchain.bit);
 
   bit_set_position(&bitchain, pos);
+  bit_print(&bitchain, 8);
   if ((dbl = bit_read_BD(&bitchain)) == 1.0)
     pass("bit_read_BD");
   else
     fail("bit_read_BD %f", dbl);
 
-  bit_advance_position(&bitchain, 2);
-  bit_write_MC(&bitchain, 300);
-  if (bitchain.byte == 11)
-    pass("bit_write_MC");
-  else
-    fail("bit_write_MC @%d.%d", bitchain.byte, bitchain.bit);
+  bit_advance_position(&bitchain, 2); //9.0
 
-  bit_advance_position(&bitchain, -16);
-  if (bit_read_MC(&bitchain) == 300)
-    pass("bit_read_MC");
-  else
-    fail("bit_read_MC");
+  for (umc=1; umc <= 0x88000000UL; umc <<= 4) {
+    umc += 7;
+    pos = bit_position(&bitchain);
+    bit_write_MC(&bitchain, umc);
+    if (bitchain.byte <= 14)
+      pass("bit_write_MC 0x%x", umc);
+    else
+      fail("bit_write_MC @%d.%d", bitchain.byte, bitchain.bit);
 
+    bit_set_position(&bitchain, pos);
+    bit_print(&bitchain, 5);
+    if ((mc = bit_read_MC(&bitchain) == (BITCODE_MC)umc))
+      pass("bit_read_MC");
+    else
+      fail("bit_read_MC %ld", (long)mc);
+    bit_set_position(&bitchain, pos);
+    // beware of wrap here on 32bit: 0x8777 7777 => 0x7777 7777
+    if (umc >= 0x87777777UL)
+      break;
+  }
+
+  for (umc=1; umc <= 0x88000000UL; umc <<= 4) {
+    umc += 7;
+    pos = bit_position(&bitchain);
+    bit_write_UMC(&bitchain, umc);
+    if (bitchain.byte <= 14)
+      pass("bit_write_UMC 0x%x", umc);
+    else
+      fail("bit_write_UMC @%d.%d", bitchain.byte, bitchain.bit);
+
+    bit_set_position(&bitchain, pos);
+    bit_print(&bitchain, 5);
+    if ((mc = (BITCODE_UMC)bit_read_UMC(&bitchain) == umc))
+      pass("bit_read_UMC");
+    else
+      fail("bit_read_UMC %lu", (BITCODE_UMC)mc);
+    bit_set_position(&bitchain, pos);
+    // beware of wrap here on 32bit: 0x8777 7777 => 0x7777 7777
+    if (umc >= 0x87777777UL)
+      break;
+  }
+
+  bit_advance_position(&bitchain, 16);
   bit_write_MS(&bitchain, 5000);
   if (bitchain.byte == 13)
     pass("bit_write_MS");
@@ -466,7 +505,7 @@ main (int argc, char const *argv[])
         bit_set_position(&bitchain, pos);
       }
   }
-#define _CRC 0xEAE6
+#define _CRC 0x6024
   bit_advance_position(&bitchain, -2);
   {
     unsigned int crc = bit_write_CRC(&bitchain, 0, 0x64);
@@ -601,11 +640,11 @@ main (int argc, char const *argv[])
       fail("bit_search_sentinel %d", bitchain.byte);
   }
   {
-    unsigned int check = bit_calc_CRC(0xc0c1, (unsigned char *)bitchain.chain, 108);
-    if (check == 0xe497)
+    unsigned int check = bit_calc_CRC(0xC0C1, (unsigned char *)bitchain.chain, 108);
+    if (check == 0xEB57)
       pass("bit_calc_CRC");
     else
-      fail("bit_calc_CRC 0x%x", check);
+      fail("bit_calc_CRC %04X", check);
   }
 
   bit_chain_alloc(&bitchain);
@@ -613,6 +652,24 @@ main (int argc, char const *argv[])
     pass("bit_chain_alloc");
   else
     fail("bit_chain_alloc %ld", bitchain.size);
+
+  {
+    dwg_wchar_t w[] = { 0x4e2d, 0x5fc3, 0x7ebf, 0 };
+    unsigned char expect[] = { 0xe4,0xb8,0xad, 0xe5,0xbf,0x83, 0xe7,0xba,0xbf, 0 };
+    unsigned char *s = (unsigned char *)bit_convert_TU(w);
+    int fails = 0;
+    for (unsigned int i=0; i<sizeof(expect); i++)
+      {
+        if (s[i] != expect[i])
+          {
+            fails++;
+            fail("bit_convert_TU s[%d] %x != %x", i, s[i], expect[i]);
+          }
+      }
+    if (!fails)
+      pass("bit_convert_TU");
+    free(s);
+  }
 
   free (bitchain.chain);
   return 0;

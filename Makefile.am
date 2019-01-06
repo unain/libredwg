@@ -21,7 +21,9 @@ ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = src programs examples test doc
 if HAVE_SWIG_PYTHON
+if !DISABLE_BINDINGS
 SUBDIRS += bindings
+endif
 endif
 
 include_HEADERS = \
@@ -37,7 +39,7 @@ VALGRIND_SUPPRESSIONS = @VALGRIND_SUPPRESSIONS@
 VALGRIND_SUPPRESSIONS_FILE = @VALGRIND_SUPPRESSIONS_FILE@
 EXTRA_DIST = $(top_srcdir)/.version \
              README README-alpha \
-	     dxf_example.lsp dxf_example.sh test-dxf.sh \
+	     dxf-allcvt.lsp dxf-allcvt.sh test-dxf.sh \
 	     log.in logs-all-parallel.sh.in logs-all-serial.sh.in unknown.sh \
 	     build-aux/swig_python.patch \
 	     $(VALGRIND_SUPPRESSIONS_FILE)
@@ -121,7 +123,7 @@ check-dxf: all
 	  done; \
 	done
 
-# clang-analyzer.llvm.org
+# clang-analyzer.llvm.org, debian: clang-tools-{6.0,7}
 SCAN_BUILD = scan-build
 scan-build: clean
 	$(SCAN_BUILD) -V -o .analysis $(MAKE) -j4 &

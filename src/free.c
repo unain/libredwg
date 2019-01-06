@@ -13,7 +13,7 @@
 /*
  * free.c: helper functions to free all spec fields
  * written by Reini Urban
- * modified by Denis Pruchkovksy
+ * modified by Denis Pruchkovsky
  */
 
 #include "config.h"
@@ -62,12 +62,16 @@ static Bit_Chain *dat = &pdat;
 #define FIELD(name,type) {}
 #define FIELD_TRACE(name,type) \
   LOG_TRACE(#name ": " FORMAT_##type "\n", _obj->name)
+#define FIELD_G_TRACE(name,type,dxfgroup) \
+  LOG_TRACE(#name ": " FORMAT_##type " [" #type " %d]\n", _obj->name, dxfgroup)
 #define FIELD_CAST(name,type,cast,dxf) {}
 #define FIELD_VALUE(name) _obj->name
+#define SUB_FIELD(o,nam,type,dxf) FIELD(_obj->o.nam,type)
 
 #define ANYCODE -1
-#define FIELD_HANDLE(name,code,dxf) VALUE_HANDLE(_obj->name,code,dxf)
-#define VALUE_HANDLE(ref,_code,dxf) \
+#define FIELD_HANDLE(nam,code,dxf) VALUE_HANDLE(_obj->nam,nam,code,dxf)
+#define SUB_FIELD_HANDLE(o,nam,code,dxf) VALUE_HANDLE(_obj->o.nam,nam,code,dxf)
+#define VALUE_HANDLE(ref,nam,_code,dxf)         \
   if (ref) { \
     if (!(ref->handleref.size || (obj && ref->handleref.code > 5))) \
       free(ref); ref = NULL; \
@@ -92,8 +96,7 @@ static Bit_Chain *dat = &pdat;
 #define FIELD_TV(name,dxf) \
   if (FIELD_VALUE(name))\
     {\
-      free (FIELD_VALUE(name)); \
-      FIELD_VALUE(name) = NULL; \
+      FREE_IF (FIELD_VALUE(name)); \
     }
 #define VALUE_TV(value,dxf) FREE_IF(value)
 #define VALUE_TF(value,dxf) FREE_IF(value)
@@ -119,6 +122,9 @@ static Bit_Chain *dat = &pdat;
 #define FIELD_CMC(color,dxf1,dxf2) \
   { FIELD_TV(color.name, 0); \
     FIELD_TV(color.book_name, 0); }
+#define SUB_FIELD_CMC(o,color,dxf1,dxf2) \
+  { VALUE_TV(_obj->o.color.name, 0); \
+    VALUE_TV(_obj->o.color.book_name, 0); }
 
 //FIELD_VECTOR_N(name, type, size):
 // reads data of the type indicated by 'type' 'size' times and stores
@@ -152,13 +158,13 @@ static Bit_Chain *dat = &pdat;
 #define REACTORS(code) \
   if (obj->tio.object->reactors) { \
     for (vcount=0; vcount < obj->tio.object->num_reactors; vcount++) \
-      VALUE_HANDLE(obj->tio.object->reactors[vcount], code, 330);  \
+      VALUE_HANDLE(obj->tio.object->reactors[vcount], reactors, code, 330); \
     VALUE_TV(obj->tio.object->reactors, 0); \
   }
 #define ENT_REACTORS(code) \
   if (ent->reactors) { \
     for (vcount=0; vcount < ent->num_reactors; vcount++)\
-      VALUE_HANDLE(ent->reactors[vcount], code, 330);  \
+      VALUE_HANDLE(ent->reactors[vcount], reactors, code, 330);  \
     VALUE_TV(ent->reactors, 0); \
   }
 #define XDICOBJHANDLE(code)\
@@ -166,24 +172,24 @@ static Bit_Chain *dat = &pdat;
     {\
       if (!obj->tio.object->xdic_missing_flag)\
         {\
-          VALUE_HANDLE(obj->tio.object->xdicobjhandle, code, 0); \
+          VALUE_HANDLE(obj->tio.object->xdicobjhandle, xdicobjhandle, code, 0); \
         }\
     }\
   PRIOR_VERSIONS\
     {\
-      VALUE_HANDLE(obj->tio.object->xdicobjhandle, code, 0); \
+      VALUE_HANDLE(obj->tio.object->xdicobjhandle, xdicobjhandle, code, 0); \
     }
 #define ENT_XDICOBJHANDLE(code)\
   SINCE(R_2004)\
     {\
       if (!ent->xdic_missing_flag)\
         {\
-          VALUE_HANDLE(ent->xdicobjhandle, code, 0); \
+          VALUE_HANDLE(ent->xdicobjhandle, xdicobjhandle, code, 0);      \
         }\
     }\
   PRIOR_VERSIONS\
     {\
-      VALUE_HANDLE(ent->xdicobjhandle, code, 0); \
+      VALUE_HANDLE(ent->xdicobjhandle, xdicobjhandle, code, 0);  \
     }
 
 #define END_REPEAT(field) FIELD_TV(field,0)
@@ -211,12 +217,15 @@ dwg_free_ ##token (Bit_Chain *restrict _dat, Dwg_Object *restrict obj) \
   if (obj->tio.entity)      \
     {                       \
       LOG_HANDLE("Free entity " #token "\n") \
-      error = dwg_free_ ##token## _private(_dat, obj); \
-                                \
+      if (obj->tio.entity->tio.token) \
+        error = dwg_free_ ##token## _private(_dat, obj); \
+                                                         \
       dwg_free_common_entity_data(obj); \
       dwg_free_eed(obj);    \
-      FREE_IF(obj->tio.entity->tio.token); \
-      FREE_IF(obj->tio.entity); \
+      if (obj->tio.object) { \
+        FREE_IF(obj->tio.entity->tio.token); \
+        FREE_IF(obj->tio.entity); \
+      } \
     }                       \
   obj->parent = NULL;       \
   return error;             \
@@ -230,8 +239,8 @@ dwg_free_ ##token## _private (Bit_Chain *restrict _dat, Dwg_Object *restrict obj
   Bit_Chain *hdl_dat = _dat;\
   Bit_Chain* str_dat = _dat;\
   Dwg_Data* dwg = obj->parent;\
-  int error = 0;            \
-  _ent = obj->tio.entity;   \
+  int error = 0; \
+  _ent = obj->tio.entity; \
   _obj = ent = _ent->tio.token;
 
 #define DWG_ENTITY_END      \
@@ -274,6 +283,7 @@ dwg_free_ ##token## _private (Bit_Chain *restrict _dat, Dwg_Object *restrict obj
   Bit_Chain* str_dat = _dat;                     \
   Dwg_Data* dwg = obj->parent;                   \
   int error = 0;                                 \
+  if (!obj->tio.object) return 0;                \
   _obj = obj->tio.object->tio.token;
 
 /* obj itself is allocated via dwg->object[], dxfname is klass->dxfname or static */
@@ -292,6 +302,8 @@ dwg_free_common_entity_handle_data(Dwg_Object* obj)
   int error = 0;
 
   ent = obj->tio.entity;
+  if (!ent)
+    return;
   _obj = ent;
 
   #include "common_entity_handle_data.spec"
@@ -310,6 +322,8 @@ dwg_free_common_entity_data(Dwg_Object* obj)
   int error = 0;
 
   ent = obj->tio.entity;
+  if (!ent)
+    return;
   _obj = ent;
 
   #include "common_entity_data.spec"
@@ -338,6 +352,7 @@ dwg_free_eed(Dwg_Object* obj)
   }
   else {
     Dwg_Object_Object* _obj = obj->tio.object;
+    if (!_obj) return;
     for (i=0; i < _obj->num_eed; i++) {
       FREE_IF(_obj->eed[i].raw);
       FREE_IF(_obj->eed[i].data);
@@ -390,7 +405,7 @@ dwg_free_object(Dwg_Object *obj)
     dat->version = dwg->header.version;
   } else
     return;
-  if (obj->type == DWG_TYPE_FREED)
+  if (obj->type == DWG_TYPE_FREED || obj->tio.object == NULL)
     return;
   dat->from_version = dat->version;
   if (obj->supertype == DWG_SUPERTYPE_UNKNOWN)
@@ -672,8 +687,7 @@ dwg_free_object(Dwg_Object *obj)
             }
           else // not a class
             {
-              free(obj->tio.unknown);
-              obj->tio.unknown = NULL;
+              FREE_IF(obj->tio.unknown);
             }
         }
     }
@@ -716,7 +730,7 @@ dwg_free(Dwg_Data * dwg)
       FREE_IF(dwg->header.section);
       dwg_free_header_vars(dwg);
       if (dwg->picture.size && dwg->picture.chain)
-        free(dwg->picture.chain);
+        FREE_IF(dwg->picture.chain);
       for (i=0; i < dwg->header.num_infos; ++i)
         FREE_IF(dwg->header.section_info[i].sections);
       if (dwg->header.num_infos)

@@ -89,7 +89,7 @@ dnl We just want to know if it's needed
 ac_cv_func_malloc_0_nonnull=yes
 ac_cv_func_realloc_0_nonnull=yes
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h malloc.h wchar.h ctype.h \
-                  libgen.h getopt.h valgrind/valgrind.h])
+                  libgen.h getopt.h alloca.h valgrind/valgrind.h])
 AX_INCLUDE_STRCASECMP
 
 AC_CHECK_HEADER([dejagnu.h], [],
@@ -235,6 +235,16 @@ AS_IF([test x$enable_dxf = xno],
   AC_MSG_RESULT([yes]),
   AC_MSG_RESULT([no (default)]))
 
+dnl --disable-bindings
+AC_MSG_CHECKING([--disable-bindings])
+AC_ARG_ENABLE([bindings],AS_HELP_STRING([--disable-bindings],[
+    Disable SWIG bindings (default: no).]),[],[enable_bindings=yes])
+AM_CONDITIONAL([DISABLE_BINDINGS], [test x$enable_bindings = xno])
+AS_IF([test x$enable_bindings = xno],
+  AC_DEFINE([DISABLE_BINDINGS],1,[Define to disable bindings.])
+  AC_MSG_RESULT([yes]),
+  AC_MSG_RESULT([no (default)]))
+
 AC_MSG_CHECKING([for --enable-gcov])
 AC_ARG_ENABLE(gcov,
 	AS_HELP_STRING([--enable-gcov],
@@ -302,7 +312,7 @@ AC_ARG_ENABLE(python,
 	*)   enable_python=yes ; PYTHON="${enableval}"; AC_MSG_RESULT([enabled]) ;;
 	esac], [enable_python=check; AC_MSG_RESULT([check]) ])
 
-if test x$cross_compiling = xno; then
+if test x$cross_compiling = xno -a x$enable_bindings = xyes; then
     AX_PKG_SWIG([1.3.17], [],
       AC_MSG_WARN([SWIG is required for python bindings. disabled]))
     if test -n "$SWIG" -a x$enable_python != xno; then
@@ -311,20 +321,21 @@ if test x$cross_compiling = xno; then
       AC_CHECK_PROGS([PATCH], [patch])
     fi
     dnl swig not required for perl, we ship swig_perl.c
-    if test -n "$PERL"; then
-      ac_cv_perl="$PERL"
-      AC_CACHE_VAL([ac_cv_perl],$PERL)
-    else
-      ac_cv_perl=perl
-    fi
-    AC_PATH_PROG([PERL], [$ac_cv_perl])
-    AM_RUN_LOG([$PERL --version])
-    AM_RUN_LOG([$PERL -V:cc])
     dnl AX_SWIG_ENABLE_CXX
     dnl SWIG_MULTI_MODULE_SUPPORT
 else
-    AC_MSG_WARN([disabled swig bindings: cross-compiled])
+    AC_MSG_WARN([disabled swig bindings])
 fi
+
+if test -n "$PERL"; then
+  ac_cv_perl="$PERL"
+  AC_CACHE_VAL([ac_cv_perl],$PERL)
+else
+  ac_cv_perl=perl
+fi
+AC_PATH_PROG([PERL], [$ac_cv_perl])
+AM_RUN_LOG([$PERL --version])
+AM_RUN_LOG([$PERL -V:cc])
 
 AM_CONDITIONAL([HAVE_SWIG_PYTHON], [test -n "$SWIG" && test -n "$PYTHON_VERSION"])
 AM_CONDITIONAL([HAVE_PYTHON], [test x$enable_python != xno])
@@ -381,6 +392,14 @@ if test -n "$DOXYGEN"; then
   AC_MSG_RESULT([$doxygen_version])
 fi
 AM_CONDITIONAL([HAVE_DOXYGEN], [test -n "$DOXYGEN"])
+
+AC_CHECK_PROGS([JQ], [jq])
+if test -n "$JQ"; then
+  AC_MSG_CHECKING([JQ version])
+  [jq_version=`$JQ --version 2>&1 | grep 'jq-' | cut -c4-`]
+  AC_MSG_RESULT([$jq_version])
+fi
+AM_CONDITIONAL([HAVE_JQ], [test -n "$JQ"])
 
 dnl help2man only by the maintainer
 

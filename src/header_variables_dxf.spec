@@ -224,8 +224,8 @@
     HEADER_RC (HANDLING, 70); //default 1
   }
 
-  HEADER_VALUE (HANDSEED, RS, 5, _obj->HANDSEED->absolute_ref);
-  //HEADER_H (HANDSEED, 5); //default: 20000, before r13: 0xB8BC
+  //HEADER_VALUE (HANDSEED, RS, 5, _obj->HANDSEED->absolute_ref);
+  HEADER_H (HANDSEED, 5); //default: 20000, before r13: 0xB8BC
 
   HEADER_RC (SURFTAB1, 70); // 6
   HEADER_RC (SURFTAB2, 70); // 6
@@ -318,7 +318,15 @@
   HEADER_VALUE (MEASUREMENT, RC, 70,
                 dwg->header.num_sections > SECTION_MEASUREMENT_R13 ? 1 : 0);
   SINCE(R_2000) {
-    HEADER_RC (CELWEIGHT, 370);
+    PRINT {
+      HEADER_9(CELWEIGHT);
+      VALUE(dxf_cvt_lweight(_obj->CELWEIGHT), RCs, 370);
+    }
+    ENCODER {
+      // TODO reverse lookup
+      HEADER_RC (CELWEIGHT, 370);
+    }
+
     HEADER_RC (ENDCAPS, 280);
     HEADER_RC (JOINSTYLE, 280);
     HEADER_B (LWDISPLAY, 290);

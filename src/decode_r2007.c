@@ -892,9 +892,9 @@ read_sections_map(Bit_Chain* dat, int64_t size_comp,
                     section->pages[i]->uncomp_size);
           LOG_HANDLE("   comp_size:     %"PRIu64"\n",
                     section->pages[i]->comp_size);
-          LOG_HANDLE("   checksum:      %"PRIx64"\n",
+          LOG_HANDLE("   checksum:      %016"PRIx64"\n",
                     section->pages[i]->checksum);
-          LOG_HANDLE("   crc:           %"PRIx64"\n\n", section->pages[i]->crc);
+          LOG_HANDLE("   crc64:         %016"PRIx64"\n\n", section->pages[i]->crc);
           //debugging sanity
           assert(section->pages[i]->size < DBG_MAX_SIZE);
           assert(section->pages[i]->uncomp_size < DBG_MAX_SIZE);
@@ -1063,11 +1063,11 @@ read_file_header(Bit_Chain *restrict dat, r2007_file_header *restrict file_heade
   compr_crc   = *((uint64_t*)&pedata[16]);
   compr_len   = *((int32_t*)&pedata[24]);
   len2        = *((int32_t*)&pedata[28]);
-  LOG_TRACE("seqence_crc: %lX\n", (unsigned long)seqence_crc);
-  LOG_TRACE("seqence_key: %lX\n", (unsigned long)seqence_key);
-  LOG_TRACE("compr_crc:   %lX\n", (unsigned long)compr_crc);
-  LOG_TRACE("compr_len:   %d\n", (int)compr_len); // only this is used
-  LOG_TRACE("len2:        %d\n", (int)len2); // 0 when compressed
+  LOG_TRACE("seqence_crc64: %016lX\n", (unsigned long)seqence_crc);
+  LOG_TRACE("seqence_key:   %016lX\n", (unsigned long)seqence_key);
+  LOG_TRACE("compr_crc64:   %016lX\n", (unsigned long)compr_crc);
+  LOG_TRACE("compr_len:     %d\n", (int)compr_len); // only this is used
+  LOG_TRACE("len2:          %d\n", (int)len2); // 0 when compressed
 
   if (compr_len > 0)
     error = decompress_r2007((BITCODE_RC*)file_header, 0x110, &pedata[32], compr_len);
@@ -1117,10 +1117,20 @@ obj_string_stream(Bit_Chain *dat,
 {
   BITCODE_RL start = obj->bitsize - 1; // in bits
   BITCODE_RL data_size = 0; // in byte
+  BITCODE_RL old_size; // in byte
+  BITCODE_RL old_byte;
+  old_size = str->size;
+  old_byte = str->byte;
+
   str->chain += str->byte;
   str->byte = 0; str->bit = 0;
-  str->size = (obj->bitsize / 8) + 1;
+  str->size = (obj->bitsize / 8) + ((obj->bitsize % 8) ? 1 : 0);
   bit_advance_position(str, start-8);
+  if (str->byte >= old_size - old_byte)
+    {
+	  LOG_WARN("obj_string_stream overflow");
+	  return DWG_ERR_VALUEOUTOFBOUNDS;
+    }
   LOG_TRACE(" obj string stream +%u: @%lu.%u (%lu)", start,
             str->byte, str->bit & 7, bit_position(str));
   obj->has_strings = bit_read_B(str);
@@ -1412,6 +1422,7 @@ read_2007_section_handles(Bit_Chain* dat, Bit_Chain* hdl,
       return error;
     }
 
+  /* From here on the same code as in decode:read_2004_section_handles */
   endpos = hdl_dat.byte + hdl_dat.size;
   dwg->num_objects = 0;
 
@@ -1421,12 +1432,13 @@ read_2007_section_handles(Bit_Chain* dat, Bit_Chain* hdl,
       //long unsigned int last_handle;
       long unsigned int oldpos = 0;
       long unsigned int startpos = hdl_dat.byte;
+      uint16_t crc1, crc2;
 
       section_size = bit_read_RS_LE(&hdl_dat);
       LOG_TRACE("\nSection size: %u\n", section_size);
       if (section_size > 2050)
         {
-          LOG_ERROR("Object-map section size greater than 2050!");
+          LOG_ERROR("Object-map/handles section size greater than 2050!");
           return DWG_ERR_VALUEOUTOFBOUNDS;
         }
 
@@ -1435,15 +1447,20 @@ read_2007_section_handles(Bit_Chain* dat, Bit_Chain* hdl,
       while (hdl_dat.byte - startpos < section_size)
         {
           int added;
-          long handle, offset;
-          oldpos = hdl_dat.byte;
+          BITCODE_UMC handle;
+          BITCODE_MC offset;
 
-          handle = bit_read_MC(&hdl_dat);
+          oldpos = hdl_dat.byte;
+          handle = bit_read_UMC(&hdl_dat);
           offset = bit_read_MC(&hdl_dat);
           //last_handle += handle;
           last_offset += offset;
           LOG_TRACE("\nNext object: %lu\t", (unsigned long)dwg->num_objects)
-          LOG_TRACE("Handle: %lX\tOffset: %ld @%lu\n", handle, offset, last_offset)
+          LOG_TRACE("Handle: %lX\tOffset: " FORMAT_MC " @%lu\n",
+                    handle, offset, last_offset)
+
+          if (hdl_dat.byte == oldpos)
+            break;
 
           added = dwg_decode_add_object(dwg, &obj_dat, hdl, last_offset);
           if (added > 0)
@@ -1452,21 +1469,35 @@ read_2007_section_handles(Bit_Chain* dat, Bit_Chain* hdl,
 
       if (hdl_dat.byte == oldpos)
         break;
-      hdl_dat.byte += 2; // CRC
+#if 0
+      if (!bit_check_CRC(&hdl_dat, startpos, 0xC0C1))
+        LOG_WARN("Handles section CRC mismatch at offset %lx", startpos);
+#else
+      crc1 = bit_calc_CRC(0xC0C1, &(hdl_dat.chain[startpos]),
+                          hdl_dat.byte - startpos);
+      crc2 = bit_read_RS_LE(&hdl_dat);
+      if (crc1 == crc2)
+        {
+          LOG_INSANE("Handles section page CRC: %04X from %lx-%lx\n",
+                     crc2, startpos, hdl_dat.byte-2);
+        }
+      else
+        {
+          LOG_WARN("Handles section page CRC: %04X vs calc. %04X from %lx-%lx\n",
+                   crc2, crc1, startpos, hdl_dat.byte-2);
+          error |= DWG_ERR_WRONGCRC;
+        }
+#endif
 
       if (hdl_dat.byte >= endpos)
         break;
     }
   while (section_size > 2);
 
-  LOG_INFO("\nNum objects: %lu\n", (unsigned long)dwg->num_objects);
-
   if (hdl_dat.chain)
     free(hdl_dat.chain);
-
   if (obj_dat.chain)
     free(obj_dat.chain);
-
   return error;
 }
 

@@ -354,18 +354,20 @@ DWG_GET_ENTITY_DECL(HATCH)
 //DWG_GET_ENTITY_DECL(ARC_DIMENSION)
 DWG_GET_ENTITY_DECL(IMAGE)
 DWG_GET_ENTITY_DECL(CAMERA)
+DWG_GET_ENTITY_DECL(HELIX)
+DWG_GET_ENTITY_DECL(LIGHT)
+DWG_GET_ENTITY_DECL(MULTILEADER)
+DWG_GET_ENTITY_DECL(UNDERLAY)
+DWG_GET_ENTITY_DECL(WIPEOUT)
+#ifdef DEBUG_CLASSES
 DWG_GET_ENTITY_DECL(PLANESURFACE)
 DWG_GET_ENTITY_DECL(EXTRUDEDSURFACE)
 DWG_GET_ENTITY_DECL(LOFTEDSURFACE)
 DWG_GET_ENTITY_DECL(REVOLVEDSURFACE)
 DWG_GET_ENTITY_DECL(SWEPTSURFACE)
 DWG_GET_ENTITY_DECL(GEOPOSITIONMARKER)
-DWG_GET_ENTITY_DECL(HELIX)
-DWG_GET_ENTITY_DECL(LIGHT)
-DWG_GET_ENTITY_DECL(MULTILEADER)
 DWG_GET_ENTITY_DECL(TABLE)
-DWG_GET_ENTITY_DECL(UNDERLAY)
-DWG_GET_ENTITY_DECL(WIPEOUT)
+#endif
 
 /********************************************************************
  *     Functions to return NULL-terminated array of all objects     *
@@ -431,7 +433,8 @@ DWG_GET_OBJECT_DECL(OBJECT_PTR)
 DWG_GET_OBJECT_DECL(PERSSUBENTMANAGER)
 DWG_GET_OBJECT_DECL(UNDERLAYDEFINITION)
 DWG_GET_OBJECT_DECL(VISUALSTYLE)
-// debugging:
+
+#ifdef DEBUG_CLASSES
 DWG_GET_OBJECT_DECL(TABLECONTENT)
 DWG_GET_OBJECT_DECL(TABLEGEOMETRY)
 DWG_GET_OBJECT_DECL(CELLSTYLEMAP)
@@ -449,6 +452,7 @@ DWG_GET_OBJECT_DECL(ASSOCOSNAPPOINTREFACTIONPARAM)
 DWG_GET_OBJECT_DECL(ASSOCPERSSUBENTMANAGER)
 DWG_GET_OBJECT_DECL(ASSOC2DCONSTRAINTGROUP)
 DWG_GET_OBJECT_DECL(EVALUATION_GRAPH)
+#endif
 // unhandled:
 //DWG_GET_OBJECT_DECL(ACSH_HISTORY_CLASS)
 //DWG_GET_OBJECT_DECL(ARCALIGNEDTEXT)
@@ -461,7 +465,7 @@ DWG_GET_OBJECT_DECL(EVALUATION_GRAPH)
 //DWG_GET_OBJECT_DECL(LAYER_FILTER)
 //DWG_GET_OBJECT_DECL(LAYOUTPRINTCONFIG)
 //DWG_GET_OBJECT_DECL(LEADEROBJECTCONTEXTDATA)
-DWG_GET_OBJECT_DECL(LIGHTLIST)
+//DWG_GET_OBJECT_DECL(LIGHTLIST)
 //DWG_GET_OBJECT_DECL(NPOCOLLECTION)
 //DWG_GET_OBJECT_DECL(POINTCLOUD)
 //DWG_GET_OBJECT_DECL(RTEXT)
@@ -527,18 +531,20 @@ CAST_DWG_OBJECT_TO_ENTITY_DECL(HATCH)
 /// dwg object to variable types
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(IMAGE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(CAMERA)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(HELIX)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(LIGHT)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(MULTILEADER)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(UNDERLAY)
+CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(WIPEOUT)
+#ifdef DEBUG_CLASSES
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(PLANESURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(EXTRUDEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(LOFTEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(REVOLVEDSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(SWEPTSURFACE)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(GEOPOSITIONMARKER)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(HELIX)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(LIGHT)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(MULTILEADER)
 CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(TABLE)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(UNDERLAY)
-CAST_DWG_OBJECT_TO_ENTITY_BYNAME_DECL(WIPEOUT)
+#endif
 
 /*******************************************************************
 *     Functions created from macro to dwg object to object         *
@@ -591,11 +597,36 @@ CAST_DWG_OBJECT_TO_OBJECT_DECL(SPATIAL_INDEX)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(VISUALSTYLE)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(WIPEOUTVARIABLES)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCDEPENDENCY)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCPLANESURFACEACTIONBODY)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(DBCOLOR)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(DYNAMICBLOCKPURGEPREVENTER)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(DIMASSOC)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(GEODATA)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(OBJECT_PTR)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(PERSSUBENTMANAGER)
 CAST_DWG_OBJECT_TO_OBJECT_DECL(UNDERLAYDEFINITION)
+
+#ifdef DEBUG_CLASSES
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ACSH_SWEEP_CLASS)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ACDBNAVISWORKSMODELDEF)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCACTION)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCNETWORK)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCALIGNEDDIMACTIONBODY)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCOSNAPPOINTREFACTIONPARAM)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOCPERSSUBENTMANAGER)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(ASSOC2DCONSTRAINTGROUP)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(EVALUATION_GRAPH)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(MATERIAL)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(TABLECONTENT)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(TABLEGEOMETRY)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(CELLSTYLEMAP)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(PLOTSETTINGS)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(SUN)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(SUNSTUDY)
+CAST_DWG_OBJECT_TO_OBJECT_DECL(VBA_PROJECT)
+//CAST_DWG_OBJECT_TO_OBJECT_DECL(LIGHTLIST)
+#endif
+
 
 /// initialize the DWG version, needed for r2007+ unicode strings
 /// and pre-R13 field variants. unneeded for r13-r2004
@@ -1893,14 +1924,14 @@ dwg_ent_dim_get_clone_ins_pt(const dwg_ent_dim *restrict dim,
 
 
 EXPORT void
-dwg_ent_dim_ordinate_set_ucsorigin_pt(dwg_ent_dim_ordinate *ord,
-                                      const dwg_point_3d *restrict point,
-                                      int *restrict error);
+dwg_ent_dim_ordinate_set_def_pt(dwg_ent_dim_ordinate *ord,
+                                const dwg_point_3d *restrict point,
+                                int *restrict error);
 
 EXPORT void
-dwg_ent_dim_ordinate_get_ucsorigin_pt(const dwg_ent_dim_ordinate *restrict ord,
-                                      dwg_point_3d *restrict point,
-                                      int *restrict error);
+dwg_ent_dim_ordinate_get_def_pt(const dwg_ent_dim_ordinate *restrict ord,
+                                dwg_point_3d *restrict point,
+                                int *restrict error);
 
 EXPORT void
 dwg_ent_dim_ordinate_set_feature_location_pt(dwg_ent_dim_ordinate *restrict ord,
@@ -2774,7 +2805,7 @@ dwg_obj_proxy_set_data(dwg_obj_proxy *restrict proxy,
                        int *restrict error);
 
 EXPORT dwg_object_ref*
-dwg_obj_proxy_get_parenthandle(const dwg_obj_proxy *restrict proxy,
+dwg_obj_proxy_get_ownerhandle(const dwg_obj_proxy *restrict proxy,
                                int *restrict error);
 
 EXPORT dwg_object_ref**
@@ -3383,12 +3414,12 @@ dwg_ent_polyline_3d_set_flag(dwg_ent_polyline_3d *restrict pline3d,
                              int *restrict error);
 
 EXPORT BITCODE_RC
-dwg_ent_polyline_3d_get_flag2(const dwg_ent_polyline_3d *restrict pline3d,
+dwg_ent_polyline_3d_get_curve_type(const dwg_ent_polyline_3d *restrict pline3d,
                               int *restrict error);
 
 EXPORT void
-dwg_ent_polyline_3d_set_flag2(dwg_ent_polyline_3d *restrict pline3d,
-                              const BITCODE_RC flag2,
+dwg_ent_polyline_3d_set_curve_type(dwg_ent_polyline_3d *restrict pline3d,
+                              const BITCODE_RC curve_type,
                               int *restrict error);
 
 EXPORT BITCODE_BL
@@ -4665,7 +4696,7 @@ dwg_obj_xrecord_set_xdata(dwg_obj_xrecord *restrict xrecord,
                           int *restrict error);
 
 EXPORT dwg_object_ref*
-dwg_obj_xrecord_get_parenthandle(const dwg_obj_xrecord *restrict xrecord,
+dwg_obj_xrecord_get_ownerhandle(const dwg_obj_xrecord *restrict xrecord,
                                  int *restrict error);
 
 EXPORT BITCODE_BL
@@ -4722,7 +4753,7 @@ dwg_ent_get_picture(const dwg_obj_ent *restrict ent,
                     int *restrict error);
 
 EXPORT BITCODE_BB
-dwg_ent_get_entity_mode(const dwg_obj_ent *restrict ent,
+dwg_ent_get_entmode(const dwg_obj_ent *restrict ent,
                         int *restrict error);
 
 EXPORT BITCODE_BL
@@ -4783,14 +4814,15 @@ dwg_ent_has_edge_visualstyle(dwg_obj_ent *restrict ent,
 
 EXPORT BITCODE_BS
 dwg_ent_get_invisible(const dwg_obj_ent *restrict ent,
-                          int *restrict error);
+                      int *restrict error);
 
+/* See dxf_cvt_lweight() for the mm value */
 EXPORT BITCODE_RC
-dwg_ent_get_lineweight(const dwg_obj_ent *restrict ent,
-                          int *restrict error); //r2000+
+dwg_ent_get_linewt(const dwg_obj_ent *restrict ent,
+                   int *restrict error); //r2000+
 
 EXPORT dwg_object_ref*
-dwg_ent_get_subentity(const dwg_obj_ent *restrict ent,
+dwg_ent_get_ownerhandle(const dwg_obj_ent *restrict ent,
                           int *restrict error);
 
 EXPORT dwg_object_ref**

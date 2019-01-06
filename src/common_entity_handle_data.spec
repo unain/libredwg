@@ -2,13 +2,33 @@
 
   #include "spec.h"
 
-  //free: avoid double-free #43
-  if ((FIELD_VALUE(entity_mode) == 0 && !IF_IS_FREE) || IF_IS_ENCODER)
-    {
-      FIELD_HANDLE(subentity, 4, 0); // doc: owner ref always?
-    }
+#ifdef IS_DXF
   ENT_REACTORS(4)
   ENT_XDICOBJHANDLE(3)
+#endif
+  //free: avoid double-free #43
+  if ((FIELD_VALUE(entmode) == 0) && !IF_IS_FREE)
+    {
+      FIELD_HANDLE(ownerhandle, 4, 330);
+    }
+#ifdef IS_DXF
+    /* parent: {m,p}space block_record or polyline for vertex, block until blkend */
+  if (FIELD_VALUE(entmode) != 0)
+    {
+      if (ent->ownerhandle) {
+        //assert(ent->entmode == 3); /* does not exist */
+        VALUE_HANDLE (ent->ownerhandle, ownerhandle, 5, 330);
+      } else if (ent->entmode == 1) {
+        VALUE_HANDLE (obj->parent->header_vars.BLOCK_RECORD_PSPACE, BLOCK_RECORD_PSPACE, 5, 330);
+      } else {
+        assert(ent->entmode == 2);
+        VALUE_HANDLE (obj->parent->header_vars.BLOCK_RECORD_MSPACE, BLOCK_RECORD_PSPACE, 5, 330);
+      }
+    }
+#else
+  ENT_REACTORS(4)
+  ENT_XDICOBJHANDLE(3)
+#endif
   SUBCLASS(AcDbEntity)
 
   VERSIONS(R_13, R_14)
@@ -40,16 +60,19 @@
         }
     }
 
+#ifndef IS_DXF
   SINCE(R_2004)
     {
       if (FIELD_VALUE(color.flag) & 0x40) {
         FIELD_HANDLE(color_handle, 5, 0);
       }
     }
+#endif
 
-  VERSION(R_2000)
+  SINCE(R_2000)
     {
       FIELD_HANDLE(layer, 5, 8);
+
 #ifdef IS_DXF
       switch (FIELD_VALUE(linetype_flags)) {
       case 0: VALUE_TV("BYLAYER", 6); break;
@@ -61,6 +84,14 @@
       if (FIELD_VALUE(linetype_flags) == 3)
         FIELD_HANDLE(ltype, 5, 6);
     }
+#ifdef IS_DXF
+  SINCE(R_2004)
+    {
+      if (FIELD_VALUE(color.flag) & 0x40) {
+        FIELD_HANDLE(color_handle, 5, 0);
+      }
+    }
+#endif
 
   SINCE(R_2007)
     {

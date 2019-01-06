@@ -623,8 +623,8 @@ dwg_ref_object(const Dwg_Data *restrict dwg, Dwg_Object_Ref *restrict ref)
  */
 Dwg_Object*
 dwg_ref_object_relative(const Dwg_Data *restrict dwg,
-                            Dwg_Object_Ref *restrict ref,
-                            const Dwg_Object *restrict obj)
+                        Dwg_Object_Ref *restrict ref,
+                        const Dwg_Object *restrict obj)
 {
   if (ref->obj && !dwg->dirty_refs)
     return ref->obj;
@@ -926,4 +926,16 @@ dwg_section_type(const DWGCHAR *wname)
     return SECTION_APPINFOHISTORY;
   }
   return SECTION_UNKNOWN;
+}
+
+EXPORT int
+dxf_cvt_lweight(const BITCODE_RC value)
+{
+    // See acdb.h: 100th of a mm, enum of
+    const int lweights[] = {0, 5, 9, 13, 15, 18, 20, 25, 30, 35,
+                            40, 50, 53, 60, 70, 80, 90, 100, 106,
+                            120, 140, 158, 200, 211,
+                            /*illegal/reserved:*/ 0,0,0,0,0,
+                            /*29:*/ -1, -2, -3}; // BYLAYER, BYBLOCK, BYLWDEFAULT
+    return lweights[value % 32];
 }

@@ -46,6 +46,8 @@ int
 dwg_decode(Bit_Chain *dat, Dwg_Data *dwg);
 int
 dwg_decode_unknown(Bit_Chain *restrict dat, Dwg_Object *restrict obj);
+Dwg_Object_Ref*
+dwg_find_objectref(Dwg_Data *restrict dwg, const Dwg_Object *restrict obj);
 
 /*------------------------------------------------------------------------------
  * Functions reused with decode_r2007
@@ -71,6 +73,11 @@ dwg_free_xdata_resbuf(Dwg_Resbuf *rbuf);
 /* reused with encode */
 void
 dwg_resolve_objectrefs_silent(Dwg_Data *restrict dwg);
+
+/* reused with out_dxf */
+char*
+dwg_dim_blockname(Dwg_Data *restrict dwg, const Dwg_Object *restrict obj);
+
 
 /* from decode_r2007.c */
 int

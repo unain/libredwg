@@ -23,7 +23,9 @@
 ACLOCAL_AMFLAGS = -I m4
 
 # The perl subdir is for the perl Makefile.PL tool and is driven from here
+if HAVE_PYTHON
 SUBDIRS = python
+endif
 
 if HAVE_SWIG_PERL
 
@@ -52,7 +54,7 @@ CLEANFILES = perl/LibreDWG.bs perl/LibreDWG.c perl/pm_to_blib perl/Makefile \
 # rpath/LD_LIBRARY_PATH overrides are too troublesome
 check-am: $(dist_perl_PERL) perl/Makefile perl/LibreDWG.$(OBJEXT)
 	@echo Making check for perl
-	-if grep "NOOP = rem" perl/Makefile; then false; else $(MAKE) -C perl test OPTIMIZE="" LD_RUN_PATH="$(abs_top_builddir)/src/.libs"; fi
+	-if grep "NOOP = rem" perl/Makefile; then false; else $(MAKE) -C perl test OPTIMIZE="" LD_LIBRARY_PATH="$(abs_top_builddir)/src/.libs"; fi
 
 install-am: $(dist_perl_PERL) perl/Makefile perl/LibreDWG.$(OBJEXT)
 	@echo Making install for perl

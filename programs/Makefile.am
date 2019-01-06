@@ -80,6 +80,12 @@ endif
 endif
 
 TESTS = alive.test
+if !DISABLE_DXF
+TESTS += dxf.test
+if HAVE_JQ
+TESTS += json.test
+endif
+endif
 
 EXTRA_DIST  = suffix.inc common.inc $(TESTS) cmp_dxf.pl
 CLEANFILES  = {example_,sample_}*.{bmp,ps,svg,dxf,log}
