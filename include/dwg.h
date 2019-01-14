@@ -4591,7 +4591,7 @@ typedef struct _dwg_object_DIMASSOC
   BITCODE_RC trans_space_flag;/*!< DXF 70 */
   Dwg_DIMASSOC_Ref *ref;       /* 1-4x */
   BITCODE_BL intsect_gsmarker; /*!< DXF 92 */
-  BITCODE_H ownerhandle;     /*!< DXF 330 */
+  BITCODE_H ownerhandle;      /*!< DXF 330 */
   BITCODE_H dimensionobj;     /*!< DXF 330 */
   BITCODE_H xrefobj;          /*!< DXF 301 */
   BITCODE_H intsectxrefobj;   /*!< DXF 302 */
@@ -5655,6 +5655,9 @@ dwg_obj_is_control(const Dwg_Object *obj);
 EXPORT int
 dwg_obj_is_table(const Dwg_Object *obj);
 
+EXPORT int
+dwg_obj_is_subentity(const Dwg_Object *obj);
+
 EXPORT BITCODE_BL
 dwg_get_num_entities(const Dwg_Data *);
 
@@ -5677,12 +5680,14 @@ dwg_ref_object_relative(const Dwg_Data *restrict dwg,
                         const Dwg_Object *restrict obj);
 
 EXPORT Dwg_Object*
-get_first_owned_object(const Dwg_Object *restrict hdr);
+get_first_owned_entity(const Dwg_Object *restrict hdr);
 EXPORT Dwg_Object*
-get_next_owned_object(const Dwg_Object *restrict hdr,
+get_next_owned_entity(const Dwg_Object *restrict hdr,
                       const Dwg_Object *restrict current);
 EXPORT Dwg_Object*
 get_first_owned_block(const Dwg_Object *hdr);
+EXPORT Dwg_Object*
+get_last_owned_block(const Dwg_Object *hdr);
 EXPORT Dwg_Object*
 get_next_owned_block(const Dwg_Object *restrict hdr,
                      const Dwg_Object *restrict current);

@@ -49,6 +49,8 @@ static bool env_var_checked_p;
 /*------------------------------------------------------------------------------
  * Public functions
  */
+Dwg_Object *
+dwg_resolve_handle_silent(const Dwg_Data * dwg, const BITCODE_BL absref);
 
 static int dat_read_file (Bit_Chain *restrict dat, FILE *restrict fp,
                           const char *restrict filename)
@@ -732,8 +734,10 @@ dwg_paper_space_ref(Dwg_Data *dwg)
     ? dwg->block_control.paper_space : NULL;
 }
 
+/** Returns the first entity owned by the block hdr, or NULL.
+ */
 Dwg_Object*
-get_first_owned_object(const Dwg_Object *hdr)
+get_first_owned_entity(const Dwg_Object *hdr)
 {
   unsigned int version = hdr->parent->header.version;
   Dwg_Object_BLOCK_HEADER *_hdr = hdr->tio.object->tio.BLOCK_HEADER;
@@ -747,8 +751,7 @@ get_first_owned_object(const Dwg_Object *hdr)
     {
       return _hdr->first_entity ? _hdr->first_entity->obj : NULL;
     }
-
-  if (version >= R_2004)
+  else if (version >= R_2004)
     {
       _hdr->__iterator = 0;
       if (_hdr->entities && _hdr->num_owned && _hdr->entities[0])
@@ -762,8 +765,11 @@ get_first_owned_object(const Dwg_Object *hdr)
   return NULL;
 }
 
+/** Returns the next entity owned by the block hdr, or NULL.
+ *  Not subentities: ATTRIB, VERTEX.
+ */
 Dwg_Object*
-get_next_owned_object(const Dwg_Object *restrict hdr,
+get_next_owned_entity(const Dwg_Object *restrict hdr,
                       const Dwg_Object *restrict current)
 {
   unsigned int version = hdr->parent->header.version;
@@ -776,12 +782,30 @@ get_next_owned_object(const Dwg_Object *restrict hdr,
 
   if (R_13 <= version && version <= R_2000)
     {
+      Dwg_Object *obj;
       if (current == _hdr->last_entity->obj)
         return NULL;
-      return dwg_next_object(current);
+      obj = dwg_next_object(current);
+      while (obj &&
+             (obj->supertype != DWG_SUPERTYPE_ENTITY ||
+              obj->type == DWG_TYPE_ATTDEF ||
+              obj->type == DWG_TYPE_ATTRIB ||
+              obj->type == DWG_TYPE_VERTEX_2D ||
+              obj->type == DWG_TYPE_VERTEX_3D ||
+              obj->type == DWG_TYPE_VERTEX_MESH ||
+              obj->type == DWG_TYPE_VERTEX_PFACE ||
+              obj->type == DWG_TYPE_VERTEX_PFACE_FACE))
+        {
+          obj = dwg_next_object(obj);
+          // this may happen with r2000 attribs
+          if (obj && obj->supertype == DWG_SUPERTYPE_ENTITY &&
+              obj->tio.entity->ownerhandle != NULL &&
+              obj->tio.entity->ownerhandle->absolute_ref != hdr->handle.value)
+            obj = NULL;
+        }
+      return obj == _hdr->last_entity->obj ? NULL : obj;
     }
-
-  if (version >= R_2004)
+  else if (version >= R_2004)
     {
       _hdr->__iterator++;
       if (_hdr->__iterator == _hdr->num_owned)
@@ -793,6 +817,9 @@ get_next_owned_object(const Dwg_Object *restrict hdr,
   return NULL;
 }
 
+/** Returns the BLOCK entity owned by the block hdr.
+ *  Only NULL on illegal hdr argument or dwg version.
+ */
 Dwg_Object*
 get_first_owned_block(const Dwg_Object *hdr)
 {
@@ -805,13 +832,25 @@ get_first_owned_block(const Dwg_Object *hdr)
     }
 
   if (version >= R_13)
-    return _hdr->block_entity ? _hdr->block_entity->obj : NULL;
+    {
+      if (_hdr->block_entity)
+        return _hdr->block_entity->obj;
+      else
+        {
+          Dwg_Object *obj = (Dwg_Object *)hdr;
+          while (obj && obj->type != DWG_TYPE_BLOCK)
+            obj = dwg_next_object(obj);
+          return obj;
+        }
+    }
 
   //TODO: preR13 block table
   LOG_ERROR("Unsupported version: %d\n", version);
   return NULL;
 }
 
+/** Returns the next block object after current owned by the block hdr, or NULL.
+ */
 Dwg_Object*
 get_next_owned_block(const Dwg_Object *restrict hdr,
                      const Dwg_Object *restrict current)
@@ -835,6 +874,37 @@ get_next_owned_block(const Dwg_Object *restrict hdr,
   return NULL;
 }
 
+/** Returns the last ENDBLK entity owned by the block hdr.
+ *  Only NULL on illegal hdr argument or dwg version.
+ */
+Dwg_Object*
+get_last_owned_block(const Dwg_Object *restrict hdr)
+{
+  unsigned int version = hdr->parent->header.version;
+  const Dwg_Object_BLOCK_HEADER *restrict _hdr = hdr->tio.object->tio.BLOCK_HEADER;
+  if (hdr->type != DWG_TYPE_BLOCK_HEADER)
+    {
+      LOG_ERROR("Invalid BLOCK_HEADER type %d", hdr->type);
+      return NULL;
+    }
+
+  if (version >= R_13)
+    {
+      if (_hdr->endblk_entity)
+        return _hdr->endblk_entity->obj;
+      else
+        {
+          Dwg_Object *obj = (Dwg_Object *)hdr;
+          while (obj && obj->type != DWG_TYPE_ENDBLK)
+            obj = dwg_next_object(obj);
+          return obj;
+        }
+    }
+
+  LOG_ERROR("Unsupported version: %d\n", version);
+  return NULL;
+}
+
 int
 dwg_class_is_entity(const Dwg_Class *klass)
 {
@@ -844,33 +914,48 @@ dwg_class_is_entity(const Dwg_Class *klass)
 int
 dwg_obj_is_control(const Dwg_Object *obj)
 {
-  unsigned int type = obj->type;
-  return type == DWG_TYPE_BLOCK_CONTROL ||
-         type == DWG_TYPE_LAYER_CONTROL ||
-         type == DWG_TYPE_STYLE_CONTROL ||
-         type == DWG_TYPE_LTYPE_CONTROL ||
-         type == DWG_TYPE_VIEW_CONTROL ||
-         type == DWG_TYPE_UCS_CONTROL ||
-         type == DWG_TYPE_VPORT_CONTROL ||
-         type == DWG_TYPE_APPID_CONTROL ||
-         type == DWG_TYPE_DIMSTYLE_CONTROL ||
-         type == DWG_TYPE_VPORT_ENTITY_CONTROL;
+  const unsigned int type = obj->type;
+  return (obj->supertype == DWG_SUPERTYPE_OBJECT) &&
+    (type == DWG_TYPE_BLOCK_CONTROL ||
+     type == DWG_TYPE_LAYER_CONTROL ||
+     type == DWG_TYPE_STYLE_CONTROL ||
+     type == DWG_TYPE_LTYPE_CONTROL ||
+     type == DWG_TYPE_VIEW_CONTROL ||
+     type == DWG_TYPE_UCS_CONTROL ||
+     type == DWG_TYPE_VPORT_CONTROL ||
+     type == DWG_TYPE_APPID_CONTROL ||
+     type == DWG_TYPE_DIMSTYLE_CONTROL ||
+     type == DWG_TYPE_VPORT_ENTITY_CONTROL);
 }
 
 int
 dwg_obj_is_table(const Dwg_Object *obj)
 {
-  unsigned int type = obj->type;
-  return type == DWG_TYPE_BLOCK_HEADER ||
-         type == DWG_TYPE_LAYER ||
-         type == DWG_TYPE_STYLE ||
-         type == DWG_TYPE_LTYPE ||
-         type == DWG_TYPE_VIEW ||
-         type == DWG_TYPE_UCS ||
-         type == DWG_TYPE_VPORT ||
-         type == DWG_TYPE_APPID ||
-         type == DWG_TYPE_DIMSTYLE ||
-         type == DWG_TYPE_VPORT_ENTITY_HEADER;
+  const unsigned int type = obj->type;
+  return (obj->supertype == DWG_SUPERTYPE_OBJECT) &&
+    (type == DWG_TYPE_BLOCK_HEADER ||
+     type == DWG_TYPE_LAYER ||
+     type == DWG_TYPE_STYLE ||
+     type == DWG_TYPE_LTYPE ||
+     type == DWG_TYPE_VIEW ||
+     type == DWG_TYPE_UCS ||
+     type == DWG_TYPE_VPORT ||
+     type == DWG_TYPE_APPID ||
+     type == DWG_TYPE_DIMSTYLE ||
+     type == DWG_TYPE_VPORT_ENTITY_HEADER);
+}
+
+int
+dwg_obj_is_subentity(const Dwg_Object *obj)
+{
+  const unsigned int type = obj->type;
+  return (obj->supertype == DWG_SUPERTYPE_ENTITY) &&
+    (type == DWG_TYPE_ATTRIB ||
+     type == DWG_TYPE_VERTEX_2D ||
+     type == DWG_TYPE_VERTEX_3D ||
+     type == DWG_TYPE_VERTEX_MESH ||
+     type == DWG_TYPE_VERTEX_PFACE ||
+     type == DWG_TYPE_VERTEX_PFACE_FACE);
 }
 
 Dwg_Section_Type
