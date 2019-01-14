@@ -2236,7 +2236,7 @@ decode_R2004_header(Bit_Chain *restrict file_dat, Dwg_Data *restrict dwg)
 
   {
     const unsigned long size = sizeof(struct Dwg_R2004_Header);
-    BITCODE_RC decrypted_data[size];
+    BITCODE_RC decrypted_data[sizeof(struct Dwg_R2004_Header)];
     Bit_Chain decrypted_header_dat = *file_dat;
     Bit_Chain* dat;
 

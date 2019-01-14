@@ -26,7 +26,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -179,7 +179,6 @@
     <ClCompile Include="..\..\..\src\decode_r2007.c" />
     <ClCompile Include="..\..\..\src\dwg.c" />
     <ClCompile Include="..\..\..\src\dwg_api.c" />
-    <ClCompile Include="..\..\..\src\encode.c" />
     <ClCompile Include="..\..\..\src\free.c" />
     <ClCompile Include="..\..\..\src\hash.c" />
     <ClCompile Include="..\..\..\src\in_dxf.c" />

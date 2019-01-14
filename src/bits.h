@@ -18,22 +18,21 @@
  * modified by Reini Urban
  */
 
- /**
-  The position of bits within bytes is numerically ordered as depicted below:
+/**
+ The position of bits within bytes is numerically ordered as depicted below:
 
- \code
-  position: 01234567 01234567 01234567 ...
-  bits:     76543210 76543210 76543210 ...
-			\______/ \______/ \______/
-			 byte 1   byte 2   byte 3  ...
- \endcode
-  */
+\code
+ position: 01234567 01234567 01234567 ...
+ bits:     76543210 76543210 76543210 ...
+           \______/ \______/ \______/
+            byte 1   byte 2   byte 3  ...
+\endcode
+ */
 
 #ifndef BITS_H
 #define BITS_H
 
 #include <stdio.h>
-
 #ifndef _WIN32
 #include "config.h"
 #else
@@ -47,18 +46,18 @@
 #endif
 #include "common.h"
 
-  /**
-   Structure for DWG-files raw data storage
-   */
+/**
+ Structure for DWG-files raw data storage
+ */
 typedef struct _bit_chain
 {
-	unsigned char *chain;
-	long unsigned int size;
-	long unsigned int byte;
-	unsigned char bit;
-	FILE *fh;
-	Dwg_Version_Type version;
-	Dwg_Version_Type from_version;
+  unsigned char *chain;
+  long unsigned int size;
+  long unsigned int byte;
+  unsigned char bit;
+  FILE *fh;
+  Dwg_Version_Type version;
+  Dwg_Version_Type from_version;
 } Bit_Chain;
 
 /* Functions for raw data manipulations.
@@ -197,7 +196,7 @@ bit_write_MS(Bit_Chain *dat, BITCODE_MS value);
 
 void
 bit_read_BE(Bit_Chain *restrict dat,
-	double *restrict x, double *restrict y, double *restrict z);
+            double *restrict x, double *restrict y, double *restrict z);
 
 void
 bit_write_BE(Bit_Chain *dat, double x, double y, double z);
@@ -225,11 +224,11 @@ bit_read_CRC(Bit_Chain *dat);
 
 int
 bit_check_CRC(Bit_Chain *dat, long unsigned int start_address,
-	const uint16_t seed);
+              const uint16_t seed);
 
 uint16_t
 bit_write_CRC(Bit_Chain *dat, long unsigned int start_address,
-	const uint16_t seed);
+              const uint16_t seed);
 
 uint16_t
 bit_calc_CRC(const uint16_t seed, unsigned char *adr, long len);
@@ -263,7 +262,7 @@ EXPORT char*
 bit_convert_TU(BITCODE_TU restrict wstr);
 
 /** Converts UTF-8 to UCS-2. Returns a copy.
-	Eventually needed by dwg writers (dxf2dwg) */
+    Eventually needed by dwg writers (dxf2dwg) */
 EXPORT BITCODE_TU
 bit_utf8_to_TU(char* restrict str);
 

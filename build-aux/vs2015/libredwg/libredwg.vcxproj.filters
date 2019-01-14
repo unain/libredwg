@@ -109,9 +109,6 @@
     <ClCompile Include="..\..\..\src\dwg_api.c">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\encode.c">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\free.c">
       <Filter>源文件</Filter>
     </ClCompile>

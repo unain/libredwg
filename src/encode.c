@@ -613,7 +613,7 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
   PRE(R_13)
     {
       // TODO: tables, entities, block entities
-      LOG_ERROR(WE_CAN "We don't encode tables, entities, blocks yet")
+	  LOG_ERROR(WE_CAN "We don't encode tables, entities, blocks yet");
 #ifndef IS_RELEASE
       return encode_preR13(dwg, dat);
 #endif
@@ -649,7 +649,7 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
 
   VERSION(R_2007)
     {
-      LOG_ERROR(WE_CAN "We don't encode R2007 sections yet")
+	  LOG_ERROR(WE_CAN "We don't encode R2007 sections yet");
       return DWG_ERR_NOTYETSUPPORTED;
     }
 
@@ -676,11 +676,11 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
     Dwg_Object *obj = NULL;
     struct Dwg_R2004_Header* _obj = &dwg->r2004_header;
     const int size = sizeof(struct Dwg_R2004_Header);
-    char encrypted_data[size];
+    char encrypted_data[128];
     unsigned int rseed = 1;
     uint32_t checksum;
 
-    LOG_ERROR(WE_CAN "We don't encode the R2004_section_map yet")
+	LOG_ERROR(WE_CAN "We don't encode the R2004_section_map yet");
 
     if (dwg->header.num_infos && !dwg->header.section_info)
       dwg->header.section_info = calloc(dwg->header.num_infos, sizeof(Dwg_Section_Info));
@@ -722,10 +722,10 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
     FIELD_RL(compression_type, 0);
     dwg_section_page_checksum(dwg->r2004_header.checksum, dat, size);
     FIELD_RL(checksum, 0);
-    LOG_TRACE("\n")
+	LOG_TRACE("\n");
 
-    LOG_WARN("TODO write_R2004_section_map(dat, dwg)")
-    LOG_TRACE("\n")
+	LOG_WARN("TODO write_R2004_section_map(dat, dwg)");
+	LOG_TRACE("\n");
 
     return DWG_ERR_NOTYETSUPPORTED;
   }
@@ -804,11 +804,11 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
       bit_write_TV(dat, klass->dxfname);
       bit_write_B(dat,  klass->wasazombie);
       bit_write_BS(dat, klass->item_class_id);
-      LOG_TRACE("Class %d 0x%x %s\n"
-                "%s \"%s\" %d 0x%x\n",
-                klass->number, klass->proxyflag, klass->dxfname,
-                klass->cppname, klass->appname,
-                klass->wasazombie, klass->item_class_id)
+	  LOG_TRACE("Class %d 0x%x %s\n"
+		  "%s \"%s\" %d 0x%x\n",
+		  klass->number, klass->proxyflag, klass->dxfname,
+		  klass->cppname, klass->appname,
+		  klass->wasazombie, klass->item_class_id);
 
       SINCE(R_2007)
         {
@@ -896,8 +896,8 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
       omap[j].address = dat->byte;
       if (index > dwg->num_objects)
         {
-          LOG_ERROR("Invalid object map index " FORMAT_BL ", max " FORMAT_BL ". Skipping",
-                    index, dwg->num_objects)
+		  LOG_ERROR("Invalid object map index " FORMAT_BL ", max " FORMAT_BL ". Skipping",
+			  index, dwg->num_objects);
           error |= DWG_ERR_VALUEOUTOFBOUNDS;
           continue;
         }
@@ -997,54 +997,54 @@ dwg_encode(Dwg_Data *restrict dwg, Bit_Chain *restrict dat)
 
     LOG_INFO("\n=======> Second Header: %8X\n", (unsigned int) dat->byte - 16);
     pvzadr = dat->byte; // Keep the first address of the section to write its size later
-    LOG_TRACE("pvzadr: %lx\n", pvzadr)
+	LOG_TRACE("pvzadr: %lx\n", pvzadr);
 
       FIELD_RL(size, 0);
     if (FIELD_VALUE(address) != (BITCODE_RL)(pvzadr - 16))
       {
         LOG_WARN("second_header->address %x != %x",
-                 FIELD_VALUE(address), (unsigned)(pvzadr - 16));
-        FIELD_VALUE(address) = pvzadr - 16;
+                 FIELD_VALUE(_obj->address), (unsigned)(pvzadr - 16));
+        FIELD_VALUE(_obj->address) = pvzadr - 16;
       }
-    FIELD_BL(address, 0);
+    FIELD_BL(_obj->address, 0);
 
     // AC1012, AC1014 or AC1015. This is a char[11], zero padded.
     // with \n at 12.
     bit_write_TF(dat, (char*)_obj->version, 12);
-    LOG_TRACE("version: %s\n", _obj->version)
+	LOG_TRACE("version: %s\n", _obj->version);
 
     for (i = 0; i < 4; i++)
-      FIELD_B(null_b[i], 0);
-    FIELD_RC(unknown_10, 0); // 0x10
+      FIELD_B(_obj->null_b[i], 0);
+    FIELD_RC(_obj->unknown_10, 0); // 0x10
     for (i = 0; i < 4; i++)
-      FIELD_RC(unknown_rc4[i], 0);
+      FIELD_RC(_obj->unknown_rc4[i], 0);
 
     UNTIL (R_2000) {
-      FIELD_RC(num_sections, 0); // r14: 5, r2000: 6
-      for (i = 0; i < FIELD_VALUE(num_sections); i++)
+      FIELD_RC(_obj->num_sections, 0); // r14: 5, r2000: 6
+      for (i = 0; i < FIELD_VALUE(_obj->num_sections); i++)
         {
-          FIELD_RC(section[i].nr, 0);
-          FIELD_BL(section[i].address, 0);
-          FIELD_BL(section[i].size, 0);
+          FIELD_RC(_obj->section[i].nr, 0);
+          FIELD_BL(_obj->section[i].address, 0);
+          FIELD_BL(_obj->section[i].size, 0);
         }
 
-      FIELD_BS(num_handlers, 0); // 14, resp. 16 in r14
-      if (FIELD_VALUE(num_handlers) > 16) {
-        LOG_ERROR("Second header num_handlers > 16: %d\n", FIELD_VALUE(num_handlers));
-        FIELD_VALUE(num_handlers) = 14;
+      FIELD_BS(_obj->num_handlers, 0); // 14, resp. 16 in r14
+      if (FIELD_VALUE(_obj->num_handlers) > 16) {
+        LOG_ERROR("Second header num_handlers > 16: %d\n", FIELD_VALUE(_obj->num_handlers));
+        FIELD_VALUE(_obj->num_handlers) = 14;
       }
-      for (i = 0; i < FIELD_VALUE(num_handlers); i++)
+      for (i = 0; i < FIELD_VALUE(_obj->num_handlers); i++)
         {
-          FIELD_RC(handlers[i].size, 0);
-          FIELD_RC(handlers[i].nr, 0);
-          FIELD_VECTOR(handlers[i].data, RC, handlers[i].size, 0);
+          FIELD_RC(_obj->handlers[i].size, 0);
+          FIELD_RC(_obj->handlers[i].nr, 0);
+          FIELD_VECTOR(_obj->handlers[i].data, RC, _obj->handlers[i].size, 0);
         }
 
       bit_write_CRC(dat, pvzadr, 0xC0C1);
 
       VERSION(R_14) {
-        FIELD_RL(junk_r14_1, 0);
-        FIELD_RL(junk_r14_2, 0);
+        FIELD_RL(_obj->junk_r14_1, 0);
+        FIELD_RL(_obj->junk_r14_2, 0);
       }
     }
     bit_write_sentinel(dat, dwg_sentinel(DWG_SENTINEL_SECOND_HEADER_END));
