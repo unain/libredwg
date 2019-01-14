@@ -33,7 +33,11 @@
  * But first check the EOL: CRLF or just LF. This speeds up the search.
  */
 
+#ifndef _WIN32
 #include "config.h"
+#else
+#include "config_win32.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

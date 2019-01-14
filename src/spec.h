@@ -33,8 +33,9 @@
 #define IF_IS_FREE 0
 
 #ifndef ACTION
-# error ACTION define missing: decode, encode, dxf, ...
+#error ACTION define missing: decode, encode, dxf, ...
 #endif
+
 #define _DWG_FUNC_N(ACTION,name) dwg_ ## ACTION ## _ ## name
 #define DWG_FUNC_N(ACTION,name) _DWG_FUNC_N(ACTION,name)
 

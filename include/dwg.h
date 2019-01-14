@@ -22,7 +22,9 @@
 
 #ifndef DWG_H
 #define DWG_H
-
+#ifdef _WIN32
+#define restrict __restrict
+#endif
 /* for uint64_t, but not in swig */
 #ifndef SWIGIMPORTED
 /* with autotools you get better int types, esp. on 64bit */

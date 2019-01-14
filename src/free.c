@@ -16,7 +16,9 @@
  * modified by Denis Pruchkovsky
  */
 
+#ifndef _WIN32
 #include "config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef __STDC_ALLOC_LIB__

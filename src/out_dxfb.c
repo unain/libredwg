@@ -15,7 +15,9 @@
  * written by Reini Urban
  */
 
+#ifndef _WIN32
 #include "config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

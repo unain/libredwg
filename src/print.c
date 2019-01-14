@@ -15,8 +15,9 @@
  * written by Rodrigo Rodrigues da Silva
  * modified by Reini Urban
  */
-
+#ifndef _WIN32
 #include "config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +32,7 @@
 #define DWG_LOGLEVEL DWG_LOGLEVEL_TRACE
 #include "logging.h"
 
-/* the current version per spec block */
+ /* the current version per spec block */
 static unsigned int cur_ver = 0;
 
 /*--------------------------------------------------------------------------------
@@ -185,9 +186,9 @@ static unsigned int cur_ver = 0;
 #define VALUE_RL(value,dxf) VALUE(value, RL, dxf)
 #define VALUE_RD(value,dxf) VALUE(value, RD, dxf)
 
-//FIELD_VECTOR_N(name, type, size):
-// reads data of the type indicated by 'type' 'size' times and stores
-// it all in the vector called 'name'.
+ //FIELD_VECTOR_N(name, type, size):
+ // reads data of the type indicated by 'type' 'size' times and stores
+ // it all in the vector called 'name'.
 #define FIELD_VECTOR_N(name, type, size, dxf)\
   if (size > 0 && _obj->name != NULL)\
     {\
@@ -338,23 +339,23 @@ dwg_print_ ##token (Bit_Chain *restrict dat, Dwg_Object *restrict obj) \
 static int
 dwg_print_variable_type(Dwg_Data * dwg, Bit_Chain * dat, Dwg_Object* obj)
 {
-  int i;
-  int is_entity;
-  Dwg_Class *klass;
+	int i;
+	int is_entity;
+	Dwg_Class *klass;
 
-  i = obj->type - 500;
-  if (i < 0 || i > (int)dwg->num_classes)
-    return DWG_ERR_INVALIDTYPE;
+	i = obj->type - 500;
+	if (i < 0 || i >(int)dwg->num_classes)
+		return DWG_ERR_INVALIDTYPE;
 
-  klass = &dwg->dwg_class[i];
-  if (!klass || !klass->dxfname)
-    return DWG_ERR_INTERNALERROR;
-  // almost always false
-  is_entity = dwg_class_is_entity(klass);
+	klass = &dwg->dwg_class[i];
+	if (!klass || !klass->dxfname)
+		return DWG_ERR_INTERNALERROR;
+	// almost always false
+	is_entity = dwg_class_is_entity(klass);
 
-  #include "classes.inc"
+#include "classes.inc"
 
-  return DWG_ERR_UNHANDLEDCLASS;
+	return DWG_ERR_UNHANDLEDCLASS;
 }
 
 /* prints to logging.h OUTPUT (ie stderr). Returns 0 on success
@@ -363,214 +364,214 @@ dwg_print_variable_type(Dwg_Data * dwg, Bit_Chain * dat, Dwg_Object* obj)
 int
 dwg_print_object(Bit_Chain* dat, Dwg_Object *obj)
 {
-  int error = 0;
-  //Bit_Chain * dat = (Bit_Chain *)obj->parent->bit_chain;
-  //Bit_Chain *hdl_dat = dat;
-  switch (obj->type)
-    {
-    case DWG_TYPE_TEXT:
-      return dwg_print_TEXT(dat, obj);
-    case DWG_TYPE_ATTRIB:
-      return dwg_print_ATTRIB(dat, obj);
-   case DWG_TYPE_ATTDEF:
-      return dwg_print_ATTDEF(dat, obj);
-   case DWG_TYPE_BLOCK:
-      return dwg_print_BLOCK(dat, obj);
-   case DWG_TYPE_ENDBLK:
-      return dwg_print_ENDBLK(dat, obj);
-   case DWG_TYPE_SEQEND:
-      return dwg_print_SEQEND(dat, obj);
-   case DWG_TYPE_INSERT:
-      return dwg_print_INSERT(dat, obj);
-   case DWG_TYPE_MINSERT:
-      return dwg_print_MINSERT(dat, obj);
-   case DWG_TYPE_VERTEX_2D:
-      return dwg_print_VERTEX_2D(dat, obj);
-   case DWG_TYPE_VERTEX_3D:
-      return dwg_print_VERTEX_3D(dat, obj);
-   case DWG_TYPE_VERTEX_MESH:
-      return dwg_print_VERTEX_MESH(dat, obj);
-   case DWG_TYPE_VERTEX_PFACE:
-      return dwg_print_VERTEX_PFACE(dat, obj);
-   case DWG_TYPE_VERTEX_PFACE_FACE:
-      return dwg_print_VERTEX_PFACE_FACE(dat, obj);
-   case DWG_TYPE_POLYLINE_2D:
-      return dwg_print_POLYLINE_2D(dat, obj);
-   case DWG_TYPE_POLYLINE_3D:
-      return dwg_print_POLYLINE_3D(dat, obj);
-   case DWG_TYPE_ARC:
-      return dwg_print_ARC(dat, obj);
-   case DWG_TYPE_CIRCLE:
-      return dwg_print_CIRCLE(dat, obj);
-   case DWG_TYPE_LINE:
-      return dwg_print_LINE(dat, obj);
-   case DWG_TYPE_DIMENSION_ORDINATE:
-      return dwg_print_DIMENSION_ORDINATE(dat, obj);
-   case DWG_TYPE_DIMENSION_LINEAR:
-      return dwg_print_DIMENSION_LINEAR(dat, obj);
-   case DWG_TYPE_DIMENSION_ALIGNED:
-      return dwg_print_DIMENSION_ALIGNED(dat, obj);
-   case DWG_TYPE_DIMENSION_ANG3PT:
-      return dwg_print_DIMENSION_ANG3PT(dat, obj);
-   case DWG_TYPE_DIMENSION_ANG2LN:
-      return dwg_print_DIMENSION_ANG2LN(dat, obj);
-   case DWG_TYPE_DIMENSION_RADIUS:
-      return dwg_print_DIMENSION_RADIUS(dat, obj);
-   case DWG_TYPE_DIMENSION_DIAMETER:
-      return dwg_print_DIMENSION_DIAMETER(dat, obj);
-   case DWG_TYPE_POINT:
-      return dwg_print_POINT(dat, obj);
-   case DWG_TYPE__3DFACE:
-      return dwg_print__3DFACE(dat, obj);
-   case DWG_TYPE_POLYLINE_PFACE:
-      return dwg_print_POLYLINE_PFACE(dat, obj);
-   case DWG_TYPE_POLYLINE_MESH:
-      return dwg_print_POLYLINE_MESH(dat, obj);
-   case DWG_TYPE_SOLID:
-      return dwg_print_SOLID(dat, obj);
-   case DWG_TYPE_TRACE:
-      return dwg_print_TRACE(dat, obj);
-   case DWG_TYPE_SHAPE:
-      return dwg_print_SHAPE(dat, obj);
-   case DWG_TYPE_VIEWPORT:
-      return dwg_print_VIEWPORT(dat, obj);
-   case DWG_TYPE_ELLIPSE:
-      return dwg_print_ELLIPSE(dat, obj);
-   case DWG_TYPE_SPLINE:
-      return dwg_print_SPLINE(dat, obj);
-   case DWG_TYPE_REGION:
-      return dwg_print_REGION(dat, obj);
-   case DWG_TYPE__3DSOLID:
-      return dwg_print__3DSOLID(dat, obj);
-      /* Check the type of the object? */
-    case DWG_TYPE_BODY:
-      return dwg_print_BODY(dat, obj);
-   case DWG_TYPE_RAY:
-      return dwg_print_RAY(dat, obj);
-   case DWG_TYPE_XLINE:
-      return dwg_print_XLINE(dat, obj);
-   case DWG_TYPE_DICTIONARY:
-      return dwg_print_DICTIONARY(dat, obj);
-   case DWG_TYPE_MTEXT:
-      return dwg_print_MTEXT(dat, obj);
-   case DWG_TYPE_LEADER:
-      return dwg_print_LEADER(dat, obj);
-   case DWG_TYPE_TOLERANCE:
-      return dwg_print_TOLERANCE(dat, obj);
-   case DWG_TYPE_MLINE:
-      return dwg_print_MLINE(dat, obj);
-   case DWG_TYPE_BLOCK_CONTROL:
-      return dwg_print_BLOCK_CONTROL(dat, obj);
-   case DWG_TYPE_BLOCK_HEADER:
-      return dwg_print_BLOCK_HEADER(dat, obj);
-   case DWG_TYPE_LAYER_CONTROL:
-      return dwg_print_LAYER_CONTROL(dat, obj);
-   case DWG_TYPE_LAYER:
-      return dwg_print_LAYER(dat, obj);
-   case DWG_TYPE_STYLE_CONTROL:
-      return dwg_print_STYLE_CONTROL(dat, obj);
-   case DWG_TYPE_STYLE:
-      return dwg_print_STYLE(dat, obj);
-   case DWG_TYPE_LTYPE_CONTROL:
-      return dwg_print_LTYPE_CONTROL(dat, obj);
-   case DWG_TYPE_LTYPE:
-      return dwg_print_LTYPE(dat, obj);
-   case DWG_TYPE_VIEW_CONTROL:
-      return dwg_print_VIEW_CONTROL(dat, obj);
-   case DWG_TYPE_VIEW:
-      return dwg_print_VIEW(dat, obj);
-   case DWG_TYPE_UCS_CONTROL:
-      return dwg_print_UCS_CONTROL(dat, obj);
-   case DWG_TYPE_UCS:
-      return dwg_print_UCS(dat, obj);
-   case DWG_TYPE_VPORT_CONTROL:
-      return dwg_print_VPORT_CONTROL(dat, obj);
-   case DWG_TYPE_VPORT:
-      return dwg_print_VPORT(dat, obj);
-   case DWG_TYPE_APPID_CONTROL:
-      return dwg_print_APPID_CONTROL(dat, obj);
-   case DWG_TYPE_APPID:
-      return dwg_print_APPID(dat, obj);
-   case DWG_TYPE_DIMSTYLE_CONTROL:
-      return dwg_print_DIMSTYLE_CONTROL(dat, obj);
-   case DWG_TYPE_DIMSTYLE:
-      return dwg_print_DIMSTYLE(dat, obj);
-   case DWG_TYPE_VPORT_ENTITY_CONTROL:
-      return dwg_print_VPORT_ENTITY_CONTROL(dat, obj);
-   case DWG_TYPE_VPORT_ENTITY_HEADER:
-      return dwg_print_VPORT_ENTITY_HEADER(dat, obj);
-   case DWG_TYPE_GROUP:
-      return dwg_print_GROUP(dat, obj);
-   case DWG_TYPE_MLINESTYLE:
-      return dwg_print_MLINESTYLE(dat, obj);
-   case DWG_TYPE_OLE2FRAME:
-      return dwg_print_OLE2FRAME(dat, obj);
-   case DWG_TYPE_DUMMY:
-      return dwg_print_DUMMY(dat, obj);
-   case DWG_TYPE_LONG_TRANSACTION:
-      return dwg_print_LONG_TRANSACTION(dat, obj);
-   case DWG_TYPE_LWPOLYLINE:
-      return dwg_print_LWPOLYLINE(dat, obj);
-   case DWG_TYPE_HATCH:
-      return dwg_print_HATCH(dat, obj);
-   case DWG_TYPE_XRECORD:
-      return dwg_print_XRECORD(dat, obj);
-   case DWG_TYPE_PLACEHOLDER:
-      return dwg_print_PLACEHOLDER(dat, obj);
-   case DWG_TYPE_OLEFRAME:
-      return dwg_print_OLEFRAME(dat, obj);
-   case DWG_TYPE_VBA_PROJECT:
-      LOG_ERROR("Unhandled Object VBA_PROJECT. Has its own section\n");
-      //dwg_print_VBA_PROJECT(dat, obj);
-      break;
-   case DWG_TYPE_LAYOUT:
-      return dwg_print_LAYOUT(dat, obj);
-   case DWG_TYPE_PROXY_ENTITY:
-      return dwg_print_PROXY_ENTITY(dat, obj);
-    case DWG_TYPE_PROXY_OBJECT: //DXF name: PROXY
-      return dwg_print_PROXY_OBJECT(dat, obj);
-   default:
-      if (obj->type == obj->parent->layout_number)
-        {
-          return dwg_print_LAYOUT(dat, obj);
-        }
-      /* > 500 */
-      else if ((error = dwg_print_variable_type(obj->parent, dat, obj))
-               & DWG_ERR_UNHANDLEDCLASS)
-        {
-          Dwg_Data *dwg = obj->parent;
-          int is_entity = 0;
-          int i = obj->type - 500;
-          Dwg_Class *klass = NULL;
+	int error = 0;
+	//Bit_Chain * dat = (Bit_Chain *)obj->parent->bit_chain;
+	//Bit_Chain *hdl_dat = dat;
+	switch (obj->type)
+	{
+	case DWG_TYPE_TEXT:
+		return dwg_print_TEXT(dat, obj);
+	case DWG_TYPE_ATTRIB:
+		return dwg_print_ATTRIB(dat, obj);
+	case DWG_TYPE_ATTDEF:
+		return dwg_print_ATTDEF(dat, obj);
+	case DWG_TYPE_BLOCK:
+		return dwg_print_BLOCK(dat, obj);
+	case DWG_TYPE_ENDBLK:
+		return dwg_print_ENDBLK(dat, obj);
+	case DWG_TYPE_SEQEND:
+		return dwg_print_SEQEND(dat, obj);
+	case DWG_TYPE_INSERT:
+		return dwg_print_INSERT(dat, obj);
+	case DWG_TYPE_MINSERT:
+		return dwg_print_MINSERT(dat, obj);
+	case DWG_TYPE_VERTEX_2D:
+		return dwg_print_VERTEX_2D(dat, obj);
+	case DWG_TYPE_VERTEX_3D:
+		return dwg_print_VERTEX_3D(dat, obj);
+	case DWG_TYPE_VERTEX_MESH:
+		return dwg_print_VERTEX_MESH(dat, obj);
+	case DWG_TYPE_VERTEX_PFACE:
+		return dwg_print_VERTEX_PFACE(dat, obj);
+	case DWG_TYPE_VERTEX_PFACE_FACE:
+		return dwg_print_VERTEX_PFACE_FACE(dat, obj);
+	case DWG_TYPE_POLYLINE_2D:
+		return dwg_print_POLYLINE_2D(dat, obj);
+	case DWG_TYPE_POLYLINE_3D:
+		return dwg_print_POLYLINE_3D(dat, obj);
+	case DWG_TYPE_ARC:
+		return dwg_print_ARC(dat, obj);
+	case DWG_TYPE_CIRCLE:
+		return dwg_print_CIRCLE(dat, obj);
+	case DWG_TYPE_LINE:
+		return dwg_print_LINE(dat, obj);
+	case DWG_TYPE_DIMENSION_ORDINATE:
+		return dwg_print_DIMENSION_ORDINATE(dat, obj);
+	case DWG_TYPE_DIMENSION_LINEAR:
+		return dwg_print_DIMENSION_LINEAR(dat, obj);
+	case DWG_TYPE_DIMENSION_ALIGNED:
+		return dwg_print_DIMENSION_ALIGNED(dat, obj);
+	case DWG_TYPE_DIMENSION_ANG3PT:
+		return dwg_print_DIMENSION_ANG3PT(dat, obj);
+	case DWG_TYPE_DIMENSION_ANG2LN:
+		return dwg_print_DIMENSION_ANG2LN(dat, obj);
+	case DWG_TYPE_DIMENSION_RADIUS:
+		return dwg_print_DIMENSION_RADIUS(dat, obj);
+	case DWG_TYPE_DIMENSION_DIAMETER:
+		return dwg_print_DIMENSION_DIAMETER(dat, obj);
+	case DWG_TYPE_POINT:
+		return dwg_print_POINT(dat, obj);
+	case DWG_TYPE__3DFACE:
+		return dwg_print__3DFACE(dat, obj);
+	case DWG_TYPE_POLYLINE_PFACE:
+		return dwg_print_POLYLINE_PFACE(dat, obj);
+	case DWG_TYPE_POLYLINE_MESH:
+		return dwg_print_POLYLINE_MESH(dat, obj);
+	case DWG_TYPE_SOLID:
+		return dwg_print_SOLID(dat, obj);
+	case DWG_TYPE_TRACE:
+		return dwg_print_TRACE(dat, obj);
+	case DWG_TYPE_SHAPE:
+		return dwg_print_SHAPE(dat, obj);
+	case DWG_TYPE_VIEWPORT:
+		return dwg_print_VIEWPORT(dat, obj);
+	case DWG_TYPE_ELLIPSE:
+		return dwg_print_ELLIPSE(dat, obj);
+	case DWG_TYPE_SPLINE:
+		return dwg_print_SPLINE(dat, obj);
+	case DWG_TYPE_REGION:
+		return dwg_print_REGION(dat, obj);
+	case DWG_TYPE__3DSOLID:
+		return dwg_print__3DSOLID(dat, obj);
+		/* Check the type of the object? */
+	case DWG_TYPE_BODY:
+		return dwg_print_BODY(dat, obj);
+	case DWG_TYPE_RAY:
+		return dwg_print_RAY(dat, obj);
+	case DWG_TYPE_XLINE:
+		return dwg_print_XLINE(dat, obj);
+	case DWG_TYPE_DICTIONARY:
+		return dwg_print_DICTIONARY(dat, obj);
+	case DWG_TYPE_MTEXT:
+		return dwg_print_MTEXT(dat, obj);
+	case DWG_TYPE_LEADER:
+		return dwg_print_LEADER(dat, obj);
+	case DWG_TYPE_TOLERANCE:
+		return dwg_print_TOLERANCE(dat, obj);
+	case DWG_TYPE_MLINE:
+		return dwg_print_MLINE(dat, obj);
+	case DWG_TYPE_BLOCK_CONTROL:
+		return dwg_print_BLOCK_CONTROL(dat, obj);
+	case DWG_TYPE_BLOCK_HEADER:
+		return dwg_print_BLOCK_HEADER(dat, obj);
+	case DWG_TYPE_LAYER_CONTROL:
+		return dwg_print_LAYER_CONTROL(dat, obj);
+	case DWG_TYPE_LAYER:
+		return dwg_print_LAYER(dat, obj);
+	case DWG_TYPE_STYLE_CONTROL:
+		return dwg_print_STYLE_CONTROL(dat, obj);
+	case DWG_TYPE_STYLE:
+		return dwg_print_STYLE(dat, obj);
+	case DWG_TYPE_LTYPE_CONTROL:
+		return dwg_print_LTYPE_CONTROL(dat, obj);
+	case DWG_TYPE_LTYPE:
+		return dwg_print_LTYPE(dat, obj);
+	case DWG_TYPE_VIEW_CONTROL:
+		return dwg_print_VIEW_CONTROL(dat, obj);
+	case DWG_TYPE_VIEW:
+		return dwg_print_VIEW(dat, obj);
+	case DWG_TYPE_UCS_CONTROL:
+		return dwg_print_UCS_CONTROL(dat, obj);
+	case DWG_TYPE_UCS:
+		return dwg_print_UCS(dat, obj);
+	case DWG_TYPE_VPORT_CONTROL:
+		return dwg_print_VPORT_CONTROL(dat, obj);
+	case DWG_TYPE_VPORT:
+		return dwg_print_VPORT(dat, obj);
+	case DWG_TYPE_APPID_CONTROL:
+		return dwg_print_APPID_CONTROL(dat, obj);
+	case DWG_TYPE_APPID:
+		return dwg_print_APPID(dat, obj);
+	case DWG_TYPE_DIMSTYLE_CONTROL:
+		return dwg_print_DIMSTYLE_CONTROL(dat, obj);
+	case DWG_TYPE_DIMSTYLE:
+		return dwg_print_DIMSTYLE(dat, obj);
+	case DWG_TYPE_VPORT_ENTITY_CONTROL:
+		return dwg_print_VPORT_ENTITY_CONTROL(dat, obj);
+	case DWG_TYPE_VPORT_ENTITY_HEADER:
+		return dwg_print_VPORT_ENTITY_HEADER(dat, obj);
+	case DWG_TYPE_GROUP:
+		return dwg_print_GROUP(dat, obj);
+	case DWG_TYPE_MLINESTYLE:
+		return dwg_print_MLINESTYLE(dat, obj);
+	case DWG_TYPE_OLE2FRAME:
+		return dwg_print_OLE2FRAME(dat, obj);
+	case DWG_TYPE_DUMMY:
+		return dwg_print_DUMMY(dat, obj);
+	case DWG_TYPE_LONG_TRANSACTION:
+		return dwg_print_LONG_TRANSACTION(dat, obj);
+	case DWG_TYPE_LWPOLYLINE:
+		return dwg_print_LWPOLYLINE(dat, obj);
+	case DWG_TYPE_HATCH:
+		return dwg_print_HATCH(dat, obj);
+	case DWG_TYPE_XRECORD:
+		return dwg_print_XRECORD(dat, obj);
+	case DWG_TYPE_PLACEHOLDER:
+		return dwg_print_PLACEHOLDER(dat, obj);
+	case DWG_TYPE_OLEFRAME:
+		return dwg_print_OLEFRAME(dat, obj);
+	case DWG_TYPE_VBA_PROJECT:
+		LOG_ERROR("Unhandled Object VBA_PROJECT. Has its own section\n");
+		//dwg_print_VBA_PROJECT(dat, obj);
+		break;
+	case DWG_TYPE_LAYOUT:
+		return dwg_print_LAYOUT(dat, obj);
+	case DWG_TYPE_PROXY_ENTITY:
+		return dwg_print_PROXY_ENTITY(dat, obj);
+	case DWG_TYPE_PROXY_OBJECT: //DXF name: PROXY
+		return dwg_print_PROXY_OBJECT(dat, obj);
+	default:
+		if (obj->type == obj->parent->layout_number)
+		{
+			return dwg_print_LAYOUT(dat, obj);
+		}
+		/* > 500 */
+		else if ((error = dwg_print_variable_type(obj->parent, dat, obj))
+			& DWG_ERR_UNHANDLEDCLASS)
+		{
+			Dwg_Data *dwg = obj->parent;
+			int is_entity = 0;
+			int i = obj->type - 500;
+			Dwg_Class *klass = NULL;
 
-          if (i > 0 && i < (int)dwg->num_classes)
-            {
-              klass = &dwg->dwg_class[i];
-              is_entity = klass ? dwg_class_is_entity(klass) : 0;
-            }
-          // properly dwg_decode_object/_entity for eed, reactors, xdic
-          if (klass && !is_entity)
-            {
-              return dwg_print_UNKNOWN_OBJ(dat, obj);
-            }
-          else if (klass)
-            {
-              return dwg_print_UNKNOWN_ENT(dat, obj);
-            }
-          else // not a class
-            {
-              LOG_WARN("Unknown object, skipping eed/reactors/xdic");
-              SINCE(R_2000)
-                {
-                  LOG_INFO("Object bitsize: %u\n", obj->bitsize)
-                }
-              LOG_INFO("Object handle: %x.%d.%lX\n",
-                       obj->handle.code, obj->handle.size, obj->handle.value);
-              return error | DWG_ERR_INVALIDTYPE;
-            }
-        }
-    }
-  return DWG_ERR_UNHANDLEDCLASS;
+			if (i > 0 && i < (int)dwg->num_classes)
+			{
+				klass = &dwg->dwg_class[i];
+				is_entity = klass ? dwg_class_is_entity(klass) : 0;
+			}
+			// properly dwg_decode_object/_entity for eed, reactors, xdic
+			if (klass && !is_entity)
+			{
+				return dwg_print_UNKNOWN_OBJ(dat, obj);
+			}
+			else if (klass)
+			{
+				return dwg_print_UNKNOWN_ENT(dat, obj);
+			}
+			else // not a class
+			{
+				LOG_WARN("Unknown object, skipping eed/reactors/xdic");
+				SINCE(R_2000)
+				{
+					LOG_INFO("Object bitsize: %u\n", obj->bitsize)
+				}
+				LOG_INFO("Object handle: %x.%d.%lX\n",
+					obj->handle.code, obj->handle.size, obj->handle.value);
+				return error | DWG_ERR_INVALIDTYPE;
+			}
+		}
+	}
+	return DWG_ERR_UNHANDLEDCLASS;
 }
 
 #undef IS_PRINT

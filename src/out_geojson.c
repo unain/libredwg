@@ -22,7 +22,9 @@
  *       field, not the last to omit the comma.
  */
 
+#ifndef _WIN32
 #include "config.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

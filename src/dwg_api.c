@@ -23,7 +23,9 @@
 #include <math.h>
 #include <assert.h>
 
+#ifndef _WIN32
 #include "config.h"
+#endif
 #ifdef HAVE_MALLOC_H
 # include <malloc.h>
 #endif

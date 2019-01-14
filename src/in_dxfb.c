@@ -17,7 +17,11 @@
  * See in_dxf.c for the plan. Only the input methods are customized here.
  */
 
+#ifndef _WIN32
 #include "config.h"
+#else
+#include "config_win32.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
