@@ -52,7 +52,7 @@ static unsigned int loglevel;
 /* the current version per spec block */
 static unsigned int cur_ver = 0;
 static char buf[255];
-static int is_sorted = 0;
+//static int is_sorted = 0;
 
 // private
 static int
@@ -191,7 +191,9 @@ static inline char* alloca(size_t size) {
   HEADER_9(nam);\
   VALUE_BLL(dwg->header_vars.nam, dxf)
 
-#define SECTION(section) fprintf(dat->fh, "  0\r\nSECTION\r\n  2\r\n" #section "\r\n")
+#define SECTION(section) \
+  LOG_INFO("Section " #section "\n")\
+  fprintf(dat->fh, "  0\r\nSECTION\r\n  2\r\n" #section "\r\n")
 #define ENDSEC()         fprintf(dat->fh, "  0\r\nENDSEC\r\n")
 #define TABLE(table)     fprintf(dat->fh, "  0\r\nTABLE\r\n  2\r\n" #table "\r\n")
 #define ENDTAB()         fprintf(dat->fh, "  0\r\nENDTAB\r\n")
@@ -625,7 +627,7 @@ dxf_write_xdata(Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
     {
       const char* fmt;
       short type;
-      int dxftype = rbuf->type + 1000;
+      int dxftype = rbuf->type;
 
       fmt = dxf_format(rbuf->type);
       type = get_base_value_type(rbuf->type);
@@ -1024,122 +1026,7 @@ dwg_dxf_variable_type(const Dwg_Data *restrict dwg, Bit_Chain *restrict dat,
   return DWG_ERR_UNHANDLEDCLASS;
 }
 
-/* Ensure that the given refs have rising objid's/indices (when read in natural order) */
-static inline int
-ref_after(const Dwg_Object_Ref *restrict r1, const Dwg_Object_Ref *restrict r2)
-{
-  if (!r1 || !r2 || !r1->obj || !r2->obj) return 0;
-  return r1->obj->index >= r2->obj->index ? 1 : 0;
-}
-
-/* just look at the next object, if it's a SEQEND */
-int
-dxf_is_sorted_INSERT(const Dwg_Object *restrict obj)
-{
-  Dwg_Object *next = dwg_next_object(obj);
-
-  if (obj->fixedtype == DWG_TYPE_INSERT)
-    {
-      Dwg_Entity_INSERT *_obj = obj->tio.entity->tio.INSERT;
-      Dwg_Object_Ref *seqend = _obj->seqend;
-      if (!_obj->has_attribs)
-        return 1;
-      if (!seqend || next == seqend->obj) {
-        LOG_TRACE("unsorted INSERT %lX SEQEND %lX ATTRIB\n",
-                 obj->handle.value,
-                 seqend && seqend->obj ? seqend->obj->handle.value : 0)
-        return 0;
-      }
-    }
-  else if (obj->fixedtype == DWG_TYPE_MINSERT)
-    {
-      Dwg_Entity_MINSERT *_obj = obj->tio.entity->tio.MINSERT;
-      Dwg_Object_Ref *seqend = _obj->seqend;
-      if (!_obj->has_attribs)
-        return 1;
-      if (!seqend || next == seqend->obj) {
-        LOG_TRACE("unsorted INSERT %lX SEQEND %lX ATTRIB\n",
-                 obj->handle.value,
-                 seqend && seqend->obj ? seqend->obj->handle.value : 0)
-        return 0;
-      }
-    }
-  return 1;
-}
-
-int
-dxf_is_sorted_POLYLINE(const Dwg_Object *restrict obj)
-{
-  /* We ensured the commmon fields structure is shared with all 4 types */
-  Dwg_Entity_POLYLINE_2D *_obj = obj->tio.entity->tio.POLYLINE_2D;
-  Dwg_Data *dwg = obj->parent;
-
-  if (dwg->header.version > R_11 && dwg->header.version <= R_2000) {
-    Dwg_Object_Ref *first_vertex = _obj->first_vertex;
-    Dwg_Object_Ref *last_vertex = _obj->last_vertex;
-    Dwg_Object_Ref *seqend = _obj->seqend;
-    if (ref_after(first_vertex, last_vertex) ||
-        ref_after(last_vertex, seqend)) {
-      LOG_TRACE("unsorted POLYLINE VERTEX SEQEND\n")
-      return 0;
-    }
-  } else if (dwg->header.version >= R_2004) {
-    BITCODE_BL i = 1;
-    Dwg_Object_Ref *first_vertex = _obj->vertex[0];
-    Dwg_Object_Ref *seqend = _obj->seqend;
-    /* if shifted in check_POLYLINE_handles() seqend might be empty */
-    if (!seqend)
-      { /* either the first or last */
-        Dwg_Object *next = dwg_next_object(obj);
-        if (next && next->fixedtype == DWG_TYPE_SEQEND)
-          {
-            seqend = (Dwg_Object_Ref*)calloc(1, sizeof(Dwg_Object_Ref));
-            seqend->obj = next;
-            seqend->handleref = next->handle;
-            seqend->absolute_ref = next->handle.value;
-            _obj->seqend = seqend;
-            LOG_WARN("fixed empty POLYLINE.seqend with +1 obj")
-          }
-        else {
-          next = dwg_next_object(_obj->vertex[_obj->num_owned-1]->obj);
-          if (next && next->fixedtype == DWG_TYPE_SEQEND)
-            {
-              seqend = (Dwg_Object_Ref*)calloc(1, sizeof(Dwg_Object_Ref));
-              seqend->obj = next;
-              seqend->handleref = next->handle;
-              seqend->absolute_ref = next->handle.value;
-              _obj->seqend = seqend;
-              LOG_WARN("fixed empty POLYLINE.seqend with last vertex +1")
-            }
-        }
-      }
-    if (ref_after(first_vertex, seqend)) {
-      /* r2010+ often mix up the hdlstream offset:
-         layer,vertex*,seqend. check the types then also */
-      if (first_vertex->obj->index < obj->index) {
-        LOG_WARN("skip wrong POLYLINE.vertex[0] handle %lX < %lX\n",
-                 first_vertex->obj->handle.value, obj->handle.value);
-        if (_obj->num_owned > 1)
-          first_vertex = _obj->vertex[1];
-        i = 2;
-      } else {
-        LOG_TRACE("unsorted POLYLINE VERTEX SEQEND\n")
-        return 0;
-      }
-    }
-    for (; i < _obj->num_owned; i++)
-      {
-        if (ref_after(first_vertex, _obj->vertex[i]) ||
-            ref_after(_obj->vertex[i], seqend)) {
-          LOG_TRACE("unsorted POLYLINE VERTEX SEQEND\n")
-          return 0;
-        }
-      }
-  }
-  return 1;
-}
-
-/* process unsorted vertices */
+/* process unsorted vertices until SEQEND */
 #define decl_dxf_process_VERTEX(token) \
 static int \
 dxf_process_VERTEX_##token(Bit_Chain *restrict dat,                     \
@@ -1148,7 +1035,6 @@ dxf_process_VERTEX_##token(Bit_Chain *restrict dat,                     \
 {                                                                       \
   int error = 0;                                                        \
   Dwg_Entity_POLYLINE_##token *_obj = obj->tio.entity->tio.POLYLINE_##token; \
-  is_sorted = 1;                                                        \
                                                                         \
   VERSIONS(R_13, R_2000) {                                              \
     Dwg_Object *last_vertex = _obj->last_vertex->obj;                   \
@@ -1197,7 +1083,7 @@ decl_dxf_process_VERTEX(3D)
 decl_dxf_process_VERTEX(MESH)
 decl_dxf_process_VERTEX(PFACE)
 
-/* process seqend before attribs */
+/* process if seqend before attribs */
 #define decl_dxf_process_INSERT(token) \
 static int \
 dxf_process_##token(Bit_Chain *restrict dat,                            \
@@ -1206,7 +1092,6 @@ dxf_process_##token(Bit_Chain *restrict dat,                            \
 {                                                                       \
   int error = 0;                                                        \
   Dwg_Entity_##token *_obj = obj->tio.entity->tio.token;                \
-  is_sorted = 1;                                                        \
                                                                         \
   VERSIONS(R_13, R_2000) {                                              \
     Dwg_Object *last_attrib = _obj->last_attrib->obj;                   \
@@ -1252,13 +1137,13 @@ dwg_dxf_object(Bit_Chain *restrict dat,
                int *restrict i)
 {
   int error = 0;
-  const int minimal = obj->parent->opts & 0x10;
+  int minimal;
 
   if (!obj || !obj->parent)
     return DWG_ERR_INTERNALERROR;
-
   if (obj->supertype == DWG_SUPERTYPE_UNKNOWN)
     return 0;
+  minimal = obj->parent->opts & 0x10;
 
   switch (obj->type)
     {
@@ -1269,14 +1154,15 @@ dwg_dxf_object(Bit_Chain *restrict dat,
     case DWG_TYPE_BLOCK:
       return dwg_dxf_BLOCK(dat, obj);
     case DWG_TYPE_ENDBLK:
-      return dwg_dxf_ENDBLK(dat, obj);
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return 0; //dwg_dxf_ENDBLK(dat, obj);
+    case DWG_TYPE_SEQEND:
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return 0; //dwg_dxf_SEQEND(dat, obj);
 
     case DWG_TYPE_INSERT:
-      is_sorted = dxf_is_sorted_INSERT(obj);
       error = dwg_dxf_INSERT(dat, obj);
-      if (is_sorted)
-        return error;
-      else {
+      {
         Dwg_Entity_INSERT *_obj = obj->tio.entity->tio.INSERT;
         if (_obj->has_attribs)
           return error | dxf_process_INSERT(dat, obj, i);
@@ -1284,11 +1170,8 @@ dwg_dxf_object(Bit_Chain *restrict dat,
           return error;
       }
     case DWG_TYPE_MINSERT:
-      is_sorted = dxf_is_sorted_INSERT(obj);
       error = dwg_dxf_MINSERT(dat, obj);
-      if (is_sorted)
-        return error;
-      else {
+      {
         Dwg_Entity_MINSERT *_obj = obj->tio.entity->tio.MINSERT;
         if (_obj->has_attribs)
           return error | dxf_process_MINSERT(dat, obj, i);
@@ -1296,51 +1179,36 @@ dwg_dxf_object(Bit_Chain *restrict dat,
           return error;
       }
     case DWG_TYPE_POLYLINE_2D:
-      is_sorted = dxf_is_sorted_POLYLINE(obj);
       error = dwg_dxf_POLYLINE_2D(dat, obj);
-      if (is_sorted)
-        return error;
-      else
-        return error | dxf_process_VERTEX_2D(dat, obj, i);
+      return error | dxf_process_VERTEX_2D(dat, obj, i);
     case DWG_TYPE_POLYLINE_3D:
-      is_sorted = dxf_is_sorted_POLYLINE(obj);
       error = dwg_dxf_POLYLINE_3D(dat, obj);
-      if (is_sorted)
-        return error;
-      else
-        return error | dxf_process_VERTEX_3D(dat, obj, i);
+      return error | dxf_process_VERTEX_3D(dat, obj, i);
     case DWG_TYPE_POLYLINE_PFACE:
-      is_sorted = dxf_is_sorted_POLYLINE(obj);
       error = dwg_dxf_POLYLINE_PFACE(dat, obj);
-      if (is_sorted)
-        return error;
-      else
-        return error | dxf_process_VERTEX_PFACE(dat, obj, i);
+      return error | dxf_process_VERTEX_PFACE(dat, obj, i);
     case DWG_TYPE_POLYLINE_MESH:
-      is_sorted = dxf_is_sorted_POLYLINE(obj);
       error = dwg_dxf_POLYLINE_MESH(dat, obj);
-      if (is_sorted)
-        return error;
-      else
-        return error | dxf_process_VERTEX_MESH(dat, obj, i);
+      return error | dxf_process_VERTEX_MESH(dat, obj, i);
 
     case DWG_TYPE_ATTRIB:
-      return is_sorted ? dwg_dxf_ATTRIB(dat, obj) : 0;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_ATTRIB(dat, obj);
     case DWG_TYPE_VERTEX_2D:
-      return is_sorted ? dwg_dxf_VERTEX_2D(dat, obj) : 0;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_VERTEX_2D(dat, obj);
     case DWG_TYPE_VERTEX_3D:
-      return is_sorted ? dwg_dxf_VERTEX_3D(dat, obj) : 0;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_VERTEX_3D(dat, obj);
     case DWG_TYPE_VERTEX_MESH:
-      return is_sorted ? dwg_dxf_VERTEX_MESH(dat, obj) : 0;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_VERTEX_MESH(dat, obj);
     case DWG_TYPE_VERTEX_PFACE:
-      return is_sorted ? dwg_dxf_VERTEX_PFACE(dat, obj) : 0;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_VERTEX_PFACE(dat, obj);
     case DWG_TYPE_VERTEX_PFACE_FACE:
-      return is_sorted ? dwg_dxf_VERTEX_PFACE_FACE(dat, obj) : 0;
-
-    case DWG_TYPE_SEQEND:
-      if (is_sorted)
-        error = dwg_dxf_SEQEND(dat, obj);
-      return error;
+      LOG_WARN("stale %s subentity", obj->dxfname);
+      return dwg_dxf_VERTEX_PFACE_FACE(dat, obj);
 
     case DWG_TYPE_ARC:
       return dwg_dxf_ARC(dat, obj);
@@ -1618,6 +1486,8 @@ dxf_format (int code)
     return "%6i";
   if (code == 1071)
     return "%9li"; //int32_t
+  if (code > 1000)
+    return dxf_format(code-1000);
 
   return "(unknown code)";
 }
@@ -1919,6 +1789,7 @@ dxf_tables_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
         if (hdr && hdr->supertype == DWG_SUPERTYPE_OBJECT
             && hdr->type == DWG_TYPE_BLOCK_HEADER)
           {
+            // not necessarily in the same order as DXF, but exhaustive
             RECORD(BLOCK_RECORD);
             error |= dwg_dxf_BLOCK_HEADER(dat, hdr);
           }
@@ -1956,20 +1827,40 @@ dxf_tables_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 }
 
 static int
-dxf_block_write(Bit_Chain *restrict dat, Dwg_Object *restrict hdr, int *restrict i)
+dxf_block_write(Bit_Chain *restrict dat,
+                const Dwg_Object *restrict mspace,
+                const Dwg_Object *restrict hdr,
+                int *restrict i)
 {
   int error = 0;
-  Dwg_Object *obj = get_first_owned_block(hdr);
+  Dwg_Object *restrict obj = get_first_owned_block(hdr); //BLOCK
+  const Dwg_Object_BLOCK_HEADER *restrict _hdr = hdr->tio.object->tio.BLOCK_HEADER;
+  Dwg_Data *dwg = hdr->parent;
+  unsigned long int mspace_ref = mspace->handle.value;
+
+  if (obj)
+    error |= dwg_dxf_object(dat, obj, i);
+  else
+    {
+      LOG_ERROR("BLOCK_HEADER.block_entity missing");
+      return DWG_ERR_INVALIDDWG;
+    }
+  // Skip all *Model_Space entities, esp. new ones: UNDERLAY, MULTILEADER, ...
+  // They are all under ENTITIES later.
+  // Note: the objects may vary (e.g. example_2000), but the index not
+  if ((hdr == mspace) || (hdr->index == mspace->index))
+    obj = NULL;
+  else
+    obj = get_first_owned_entity(hdr); //first_entity
   while (obj)
     {
-      error |= dwg_dxf_object(dat, obj, i);
-      obj = get_next_owned_block(hdr, obj);
-      if (obj && obj->type == DWG_TYPE_ENDBLK)
-        {
-          error |= dwg_dxf_ENDBLK(dat, obj);
-          obj = NULL;
-        }
+      if (obj->supertype == DWG_SUPERTYPE_ENTITY &&
+          obj->tio.entity->ownerhandle != NULL &&
+          obj->tio.entity->ownerhandle->absolute_ref != mspace_ref)
+        error |= dwg_dxf_object(dat, obj, i);
+      obj = get_next_owned_entity(hdr, obj); // until last_entity
     }
+  error |= dwg_dxf_ENDBLK(dat, get_last_owned_block(hdr));
   return error;
 }
 
@@ -1978,11 +1869,11 @@ dxf_blocks_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   int error = 0;
   Dwg_Object_BLOCK_CONTROL *_ctrl = &dwg->block_control;
-  Dwg_Object *ctrl = &dwg->object[_ctrl->objid];
+  //Dwg_Object *ctrl = &dwg->object[_ctrl->objid];
   /* let's see if this control block is correct... */
   Dwg_Object_Ref *msref = dwg->header_vars.BLOCK_RECORD_MSPACE;
-  Dwg_Object_Ref *psref = dwg->header_vars.BLOCK_RECORD_PSPACE;
-  Dwg_Object *hdr, *obj;
+  //Dwg_Object_Ref *psref = dwg->header_vars.BLOCK_RECORD_PSPACE;
+  Dwg_Object *mspace;
   int i = 0;
 
   // The modelspace header needs to have an block_entity.
@@ -1990,33 +1881,31 @@ dxf_blocks_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
   if (msref && msref->obj &&
       msref->obj->type == DWG_TYPE_BLOCK_HEADER &&
       msref->obj->tio.object->tio.BLOCK_HEADER->block_entity)
-    hdr = msref->obj;
+    mspace = msref->obj;
   else
-    hdr = _ctrl->model_space->obj; // these two really should be the same
+    mspace = _ctrl->model_space->obj; // these two really should be the same
 
   // If there's no *Model_Space block skip this BLOCKS section.
   // Or try handle 1F with r2000+, 17 with r14
-  obj = get_first_owned_block(hdr);
-  if (!obj)
-    obj = dwg_resolve_handle(dwg, dwg->header.version >= R_2000 ? 0x1f : 0x17);
-  if (!obj)
-    return 1;
+  //obj = get_first_owned_block(hdr);
+  //if (!obj)
+  //  obj = dwg_resolve_handle(dwg, dwg->header.version >= R_2000 ? 0x1f : 0x17);
+  //if (!obj)
+  //  return 1;
 
   SECTION(BLOCKS);
   /* There may be unconnected pspace blocks (not caught by above),
      such as pspace referred by a LAYOUT or DIMENSION, so for simplicity just scan all
-     BLOCK_HEADER's. #81
+     BLOCK_HEADER's and just skip *Model_Space. #81
      BLOCK_HEADER - LAYOUT - BLOCK - ENDBLK
    */
   {
-    Dwg_Object_BLOCK_HEADER *_hdr;
     for (i=0; (BITCODE_BL)i < dwg->num_objects; i++)
       {
-        hdr = &dwg->object[i];
-        if (hdr->supertype == DWG_SUPERTYPE_OBJECT
-            && hdr->type == DWG_TYPE_BLOCK_HEADER)
+        if (dwg->object[i].supertype == DWG_SUPERTYPE_OBJECT &&
+            dwg->object[i].type == DWG_TYPE_BLOCK_HEADER)
           {
-            error |= dxf_block_write(dat, hdr, &i);
+            error |= dxf_block_write(dat, mspace, &dwg->object[i], &i);
           }
       }
   }
@@ -2030,14 +1919,20 @@ dxf_entities_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   int error = 0;
   int i;
+  Dwg_Object *mspace = dwg->header_vars.BLOCK_RECORD_MSPACE->obj;
 
   SECTION(ENTITIES);
   for (i=0; (BITCODE_BL)i<dwg->num_objects; i++)
     {
-      if (dwg->object[i].supertype == DWG_SUPERTYPE_ENTITY &&
-          dwg->object[i].type != DWG_TYPE_BLOCK &&
-          dwg->object[i].type != DWG_TYPE_ENDBLK)
-        error |= dwg_dxf_object(dat, &dwg->object[i], &i);
+      Dwg_Object *obj = &dwg->object[i];
+      if (obj->supertype == DWG_SUPERTYPE_ENTITY &&
+          obj->type != DWG_TYPE_BLOCK &&
+          obj->type != DWG_TYPE_ENDBLK)
+        {
+          Dwg_Object_Ref *owner = obj->tio.entity->ownerhandle;
+          if (!owner || (owner && owner->obj == mspace))
+            error |= dwg_dxf_object(dat, obj, &i);
+        }
     }
   ENDSEC();
   return error;
@@ -2052,8 +1947,11 @@ dxf_objects_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
   SECTION(OBJECTS);
   for (i=0; (BITCODE_BL)i<dwg->num_objects; i++)
     {
-      if (dwg->object[i].supertype == DWG_SUPERTYPE_OBJECT)
-        error |= dwg_dxf_object(dat, &dwg->object[i], &i);
+      const Dwg_Object *restrict obj = &dwg->object[i];
+      if (obj->supertype == DWG_SUPERTYPE_OBJECT &&
+          obj->type != DWG_TYPE_BLOCK_HEADER &&
+          !dwg_obj_is_control(obj))
+        error |= dwg_dxf_object(dat, obj, &i);
     }
   ENDSEC();
   return error;
