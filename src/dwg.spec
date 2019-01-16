@@ -1815,8 +1815,9 @@ static int decode_3dsolid(Bit_Chain* dat, Bit_Chain* hdl_dat,
 #ifdef IS_ENCODER
 
 #define ENCODE_3DSOLID encode_3dsolid(dat, hdl_dat, obj, (Dwg_Entity_3DSOLID *)_obj);
-static int encode_3dsolid(Bit_Chain* dat, Bit_Chain* hdl_dat, Dwg_Object* obj,
-                          Dwg_Entity_3DSOLID* _obj)
+static int encode_3dsolid(Bit_Chain* dat, Bit_Chain* hdl_dat,
+                          Dwg_Object *restrict obj,
+                          Dwg_Entity_3DSOLID *restrict _obj)
 {
   int error = 0;
   //TODO Implement-me
@@ -1831,11 +1832,12 @@ static int encode_3dsolid(Bit_Chain* dat, Bit_Chain* hdl_dat, Dwg_Object* obj,
 #endif //#if IS_ENCODER
 
 #ifdef IS_FREE
-static int free_3dsolid(Dwg_Object* obj, Dwg_Entity_3DSOLID* _obj)
+static int free_3dsolid(Dwg_Object *restrict obj, Dwg_Entity_3DSOLID *restrict _obj)
 {
   int error = 0;
   BITCODE_BL i;
   BITCODE_BL vcount, rcount1, rcount2;
+  Bit_Chain *dat = &pdat;
 
   for (i=0; i < FIELD_VALUE(num_blocks); i++)
     {
@@ -3509,12 +3511,22 @@ DWG_OBJECT(DICTIONARYVAR)
 
 DWG_OBJECT_END
 
-//(78 + varies) pg.136
-DWG_ENTITY(HATCH)
+int DWG_FUNC_N(ACTION,_HATCH_gradientfill)(
+                        Bit_Chain *restrict dat,
+                        Bit_Chain *restrict str_dat,
+                        const Dwg_Object *restrict obj,
+                        Dwg_Entity_HATCH *restrict _obj);
 
-  SUBCLASS (AcDbHatch)
-  SINCE(R_2004)
-    {
+int DWG_FUNC_N(ACTION,_HATCH_gradientfill)(
+                        Bit_Chain *restrict dat,
+                        Bit_Chain *restrict str_dat,
+                        const Dwg_Object *restrict obj,
+                        Dwg_Entity_HATCH *restrict _obj)
+{
+  BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4;
+  int error = 0;
+  Dwg_Data* dwg = obj->parent;
+
       FIELD_BL (is_gradient_fill, 450);
       FIELD_BL (reserved, 451);
       FIELD_BD (gradient_angle, 460);
@@ -3544,8 +3556,19 @@ DWG_ENTITY(HATCH)
       SET_PARENT_OBJ(colors)
       END_REPEAT(colors);
       FIELD_T (gradient_name, 470);
-    }
+      return error;
+}
 
+//(78 + varies) pg.136
+DWG_ENTITY(HATCH)
+
+  SUBCLASS (AcDbHatch)
+#ifndef IS_DXF
+  SINCE(R_2004)
+    {
+      error |= DWG_FUNC_N(ACTION,_HATCH_gradientfill)(dat,str_dat,obj,_obj);
+    }
+#endif
   DXF {
     BITCODE_3RD pt = { 0.0, 0.0, 0.0 };
     pt.z = FIELD_VALUE(elevation);
@@ -3676,7 +3699,7 @@ DWG_ENTITY(HATCH)
         { /* POLYLINE PATH */
           SUB_FIELD_B (paths[rcount1],bulges_present, 72);
           SUB_FIELD_B (paths[rcount1],closed, 73);
-          SUB_FIELD_BL (paths[rcount1],num_segs_or_paths, 91);
+          SUB_FIELD_BL (paths[rcount1],num_segs_or_paths, 93);
           REPEAT2(paths[rcount1].num_segs_or_paths, paths[rcount1].polyline_paths,
                   Dwg_HATCH_PolylinePath)
           REPEAT_BLOCK
@@ -3708,6 +3731,12 @@ DWG_ENTITY(HATCH)
   END_REPEAT_BLOCK
   SET_PARENT_OBJ(paths)
   END_REPEAT(paths);
+#ifdef IS_DXF
+  SINCE(R_2004)
+    {
+      error |= DWG_FUNC_N(ACTION,_HATCH_gradientfill)(dat,str_dat,obj,_obj);
+    }
+#endif
   FIELD_BS (style, 75); // 0=normal (odd parity); 1=outer; 2=whole
   FIELD_BS (pattern_type, 76); // 0=user; 1=predefined; 2=custom
   if (!FIELD_VALUE(solid_fill))
@@ -6294,9 +6323,19 @@ DWG_OBJECT_END
 DWG_OBJECT(MATERIAL)
 
   DECODE_UNKNOWN_BITS
+  DXF { FIELD_HANDLE (ownerhandle, 4, 330); }
   SUBCLASS (AcDbMaterial)
   FIELD_T (name, 1);
   FIELD_T (desc, 2);
+#ifdef IS_DXF
+  FIELD_BS (normalmap_projection, 73);
+  FIELD_BS (specularmap_projection, 78);
+  FIELD_BS (reflectionmap_projection, 172);
+  FIELD_BS (opacitymap_projection, 176);
+  FIELD_BS (bumpmap_projection, 270);
+  FIELD_BS (refractionmap_projection, 274);
+  return 0;
+#endif
 
   DEBUG_HERE_OBJ; // TODO from here on the order of the fields is unknown
   FIELD_BS (ambient_color_flag, 70); // 0 Use current color, 1 Override
@@ -6414,6 +6453,10 @@ DWG_OBJECT(MATERIAL)
   //176
   //270
   //274
+  START_HANDLE_STREAM;
+  FIELD_HANDLE (ownerhandle, 3, 0);
+  REACTORS(4);
+  XDICOBJHANDLE(3);
 DWG_OBJECT_END
 
 // (varies) DEBUGGING

@@ -359,7 +359,7 @@ static inline char* alloca(size_t size) {
 //TODO r2004+: lookup the rgb index for 62
 #define FIELD_CMC(color,dxf1,dxf2) { \
   if (dxf1 > 0 && (dat->version < R_2004 || _obj->color.index == 256)) { \
-    VALUE_RS(_obj->color.index, dxf1); \
+    VALUE_RS((_obj->color.index & 255), dxf1); \
   } \
   if (dat->version >= R_2004 && dxf2 > 0 && _obj->color.index != 256) { \
     VALUE_RL(_obj->color.rgb, dxf2); \
@@ -367,7 +367,7 @@ static inline char* alloca(size_t size) {
 }
 #define SUB_FIELD_CMC(o,color,dxf1,dxf2) { \
   if (dxf1 > 0 && (dat->version < R_2004 || _obj->o.color.index == 256)) { \
-    VALUE_RS(_obj->o.color.index, dxf1); \
+    VALUE_RS((_obj->o.color.index & 255), dxf1); \
   } \
   if (dat->version >= R_2004 && dxf2 > 0 && _obj->o.color.index != 256) { \
     VALUE_RL(_obj->o.color.rgb, dxf2); \
@@ -539,6 +539,7 @@ dwg_dxf_##token (Bit_Chain *restrict dat, const Dwg_Object *restrict obj) \
   BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4; \
   int error = 0; \
   Dwg_Data* dwg = obj->parent; \
+  Bit_Chain *str_dat = dat;\
   Dwg_Entity_##token *ent, *_obj;\
   Dwg_Object_Entity *_ent;\
   if (!strcmp(#token, "GEOPOSITIONMARKER"))\
@@ -634,6 +635,11 @@ dxf_write_xdata(Bit_Chain *restrict dat, const Dwg_Object *restrict obj,
       dxftype = (rbuf->type > 1000 || obj->fixedtype == DWG_TYPE_XRECORD)
         ? rbuf->type
         : rbuf->type + 1000;
+      if (obj->fixedtype == DWG_TYPE_XRECORD && dxftype >= 80 && dxftype < 90)
+        {
+          fmt= "(unknown code)";
+          type = VT_INVALID;
+        }
 
       if (!strcmp(fmt, "(unknown code)"))
         {
@@ -1868,22 +1874,8 @@ static int
 dxf_blocks_write (Bit_Chain *restrict dat, Dwg_Data *restrict dwg)
 {
   int error = 0;
-  Dwg_Object_BLOCK_CONTROL *_ctrl = &dwg->block_control;
-  //Dwg_Object *ctrl = &dwg->object[_ctrl->objid];
-  /* let's see if this control block is correct... */
-  Dwg_Object_Ref *msref = dwg->header_vars.BLOCK_RECORD_MSPACE;
-  //Dwg_Object_Ref *psref = dwg->header_vars.BLOCK_RECORD_PSPACE;
-  Dwg_Object *mspace;
-  int i = 0;
-
-  // The modelspace header needs to have an block_entity.
-  // There are cases (r2010 AEC dwgs) where they don't have one.
-  if (msref && msref->obj &&
-      msref->obj->type == DWG_TYPE_BLOCK_HEADER &&
-      msref->obj->tio.object->tio.BLOCK_HEADER->block_entity)
-    mspace = msref->obj;
-  else
-    mspace = _ctrl->model_space->obj; // these two really should be the same
+  int i;
+  Dwg_Object *mspace = dwg_model_space_object(dwg);
 
   // If there's no *Model_Space block skip this BLOCKS section.
   // Or try handle 1F with r2000+, 17 with r14

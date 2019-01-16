@@ -4136,6 +4136,7 @@ typedef struct _dwg_object_MATERIAL
   //? BD backface_cull
   //? BD self_illum_luminance
   //? BD self_illum_color_temperature
+  BITCODE_H ownerhandle;        /*!< DXF 330 */
 } Dwg_Object_MATERIAL;
 
 /**
@@ -5128,6 +5129,7 @@ typedef struct _dwg_object_entity
   /* preR13 in the obj: eed, elevation/pt.z, thickness, paper */
 
   /* Common Entity Handle Data */
+  BITCODE_BL __iterator;
   BITCODE_H ownerhandle; /*!< mspace, pspace or owner of subentity */
   BITCODE_H* reactors;
   BITCODE_H xdicobjhandle;
@@ -5628,11 +5630,9 @@ EXPORT double dwg_page_y_max(const Dwg_Data *);
 EXPORT Dwg_Object_BLOCK_CONTROL*
 dwg_block_control(Dwg_Data *dwg);
 
-EXPORT Dwg_Object_Ref*
-dwg_model_space_ref(Dwg_Data *dwg);
-
-EXPORT Dwg_Object_Ref*
-dwg_paper_space_ref(Dwg_Data *dwg);
+EXPORT Dwg_Object_Ref* dwg_model_space_ref(Dwg_Data *dwg);
+EXPORT Dwg_Object_Ref* dwg_paper_space_ref(Dwg_Data *dwg);
+EXPORT Dwg_Object*     dwg_model_space_object(Dwg_Data *dwg);
 
 EXPORT unsigned int
 dwg_get_layer_count(const Dwg_Data *dwg);
@@ -5684,6 +5684,11 @@ get_first_owned_entity(const Dwg_Object *restrict hdr);
 EXPORT Dwg_Object*
 get_next_owned_entity(const Dwg_Object *restrict hdr,
                       const Dwg_Object *restrict current);
+EXPORT Dwg_Object*
+get_first_owned_subentity(const Dwg_Object *restrict owner);
+EXPORT Dwg_Object*
+get_next_owned_subentity(const Dwg_Object *restrict owner,
+                         const Dwg_Object *restrict current);
 EXPORT Dwg_Object*
 get_first_owned_block(const Dwg_Object *hdr);
 EXPORT Dwg_Object*

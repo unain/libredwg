@@ -116,9 +116,16 @@ static inline char* alloca(size_t size) {
 #define FIELD_TEXT(nam,str) \
   { \
     PREFIX \
-    if (str && (strchr(str, '"') || strchr(str, '\\'))) { \
-      char *_buf = alloca(2*strlen(str)); \
-      fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
+    if (str && (1 || strchr(str, '"') || strchr(str, '\\') || strchr(str, '\n'))) { \
+      const int len = strlen(str); \
+      if (len < 4096/6) { \
+        char *_buf = alloca(6*len+1); \
+        fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
+      } else { \
+        char *_buf = malloc(6*len+1); \
+        fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
+        free(_buf); \
+      } \
     } else { \
       fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", str ? str : ""); \
     } \
@@ -127,8 +134,9 @@ static inline char* alloca(size_t size) {
 #define FIELD_TEXT(nam,str) \
   { \
     PREFIX \
-    if (str && (strchr(str, '"') || strchr(str, '\\'))) { \
-      char *_buf = malloc(2*strlen(str)); \
+    if (str && (1 || strchr(str, '"') || strchr(str, '\\') || strchr(str, '\n'))) { \
+      const int len = strlen(str); \
+      char *_buf = malloc(6*len+1); \
       fprintf(dat->fh, "\"" #nam "\": \"%s\",\n", cquote(_buf, str)); \
       free(_buf); \
     } else { \
@@ -139,8 +147,8 @@ static inline char* alloca(size_t size) {
 
 #ifdef HAVE_NATIVE_WCHAR2
 # define VALUE_TEXT_TU(wstr) \
-    if (wstr && (wcschr(wstr, L'"') || wcschr(wstr, L'\\'))) { \
-      wchar_t *_buf = malloc(2*wcslen(wstr)); \
+    if (wstr && (1 || wcschr(wstr, L'"') || wcschr(wstr, L'\\') || wcschr(wstr, L'\n'))) { \
+      wchar_t *_buf = malloc(6*wcslen(wstr)+1); \
       fprintf(dat->fh, "\"%ls\",\n", wcquote(_buf, wstr)); \
       free(_buf); \
     } else { \
@@ -450,6 +458,7 @@ dwg_json_##token (Bit_Chain *restrict dat, Dwg_Object *restrict obj) \
 {\
   BITCODE_BL vcount, rcount1, rcount2, rcount3, rcount4; \
   int error = 0; \
+  Bit_Chain *str_dat = dat;\
   Bit_Chain *hdl_dat = dat;\
   Dwg_Data* dwg = obj->parent; \
   Dwg_Entity_##token *ent, *_obj;\
@@ -514,7 +523,14 @@ print_wcquote(Bit_Chain *restrict dat, dwg_wchar_t *restrict wstr) {
       else if (c == L'\n') { fprintf(dat->fh, "\\n"); }
       else if (c == L'\r') { fprintf(dat->fh, "\\r"); }
       else if (c < 0x1f || c > 0xff) {
-        fprintf(dat->fh, "\\u%04x", c);
+        //FIXME: handle surrogate pairs properly
+        if (c >= 0xd800 && c < 0xdc00) {
+          fprintf(dat->fh, "\\u%04x", c-0x1000);
+        }
+        else if (c >= 0xdc00 && c < 0xe000)
+          ;
+        else
+          fprintf(dat->fh, "\\u%04x", c);
       }
       else
         fprintf(dat->fh, "%c", (char)(c & 0xff));
@@ -525,9 +541,9 @@ print_wcquote(Bit_Chain *restrict dat, dwg_wchar_t *restrict wstr) {
 
 static char*
 cquote(char *restrict dest, const char *restrict src) {
-  char c;
+  unsigned char c;
+  unsigned char *s = (unsigned char*)src;
   char *d = dest;
-  char *s = (char*)src;
   while ((c = *s++)) {
     if      (c == '"')  { *dest++ = '\\'; *dest++ = c; }
     else if (c == '\\') { *dest++ = '\\'; *dest++ = c; }
@@ -536,8 +552,9 @@ cquote(char *restrict dest, const char *restrict src) {
     else if (c < 0x1f)  { *dest++ = '\\'; *dest++ = 'u';
                           *dest++ = '0';  *dest++ = '0';
                           *dest++ = c < 0x10 ? '0' : '1';
-                          *dest++ = (c % 16 > 10 ? 'a' + (c%16) : '0' + (c%16)); }
-    else                                  *dest++ = c;
+                          *dest++ = (c%16) > 10 ? 'a' + (c%16) - 10 : '0' + (c%16);
+                        }
+    else                  *dest++ = c;
   }
   *dest = 0; //add final delim, skipped above
   return d;
@@ -555,10 +572,11 @@ wcquote(wchar_t *restrict dest, const wchar_t *restrict src) {
     else if (c == L'\n') { *dest++ = L'\\'; *dest++ = L'n'; }
     else if (c == L'\r') { *dest++ = L'\\'; *dest++ = L'r'; }
     else if (c < 0x1f)   { *dest++ = L'\\'; *dest++ = L'u';
-                          *dest++ = L'0';  *dest++ = L'0';
-                          *dest++ = c < 0x10 ? L'0' : L'1';
-                          *dest++ = (c % 16 > 10 ? L'a' + (c%16) : L'0' + (c%16)); }
-    else                                  *dest++ = c;
+                           *dest++ = L'0';  *dest++ = L'0';
+                           *dest++ = c < 0x10 ? L'0' : L'1';
+                           *dest++ = (c % 16 > 10 ? L'a' + (c%16) - 10 : L'0' + (c%16));
+                         }
+    else                   *dest++ = c;
   }
   *dest = 0; //add final delim, skipped above
   return d;
