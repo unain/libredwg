@@ -21,7 +21,13 @@
  * modified by Reini Urban
  */
 
+#ifndef  _WIN32
 #include "../src/config.h"
+#else
+#include "config_win32.h"
+#define strcasecmp stricmp
+#define strncasecmp  strnicmp 
+#endif // ! _WIN32
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,7 +35,7 @@
 #ifdef AX_STRCASECMP_HEADER
 # include AX_STRCASECMP_HEADER
 #endif
-#include <getopt.h>
+#include "getopt.h"
 #ifdef HAVE_VALGRIND_VALGRIND_H
 #include <valgrind/valgrind.h>
 #endif
@@ -117,7 +123,7 @@ main(int argc, char *argv[])
           break;
         }
         fprintf(stderr, "%s: option '-%c' requires an argument\n",
-                argv[0], optopt);
+                argv[0], optind);
         break;
 #ifdef HAVE_GETOPT_LONG
       case 0:
@@ -192,7 +198,7 @@ main(int argc, char *argv[])
         return help();
       case '?':
         fprintf(stderr, "%s: invalid option '-%c' ignored\n",
-                argv[0], optopt);
+                argv[0], optind);
         break;
       default:
         return usage();

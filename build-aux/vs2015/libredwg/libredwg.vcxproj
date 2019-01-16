@@ -152,6 +152,7 @@
     <ClInclude Include="..\..\..\src\dec_macros.h" />
     <ClInclude Include="..\..\..\src\encode.h" />
     <ClInclude Include="..\..\..\src\free.h" />
+    <ClInclude Include="..\..\..\src\getopt.h" />
     <ClInclude Include="..\..\..\src\hash.h" />
     <ClInclude Include="..\..\..\src\in_dxf.h" />
     <ClInclude Include="..\..\..\src\in_json.h" />
@@ -180,6 +181,7 @@
     <ClCompile Include="..\..\..\src\dwg.c" />
     <ClCompile Include="..\..\..\src\dwg_api.c" />
     <ClCompile Include="..\..\..\src\free.c" />
+    <ClCompile Include="..\..\..\src\getopt.c" />
     <ClCompile Include="..\..\..\src\hash.c" />
     <ClCompile Include="..\..\..\src\in_dxf.c" />
     <ClCompile Include="..\..\..\src\in_dxfb.c" />

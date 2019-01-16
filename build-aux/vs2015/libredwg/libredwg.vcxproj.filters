@@ -60,6 +60,9 @@
     <ClInclude Include="..\..\..\src\config_win32.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\getopt.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\src\auxheader.spec">
@@ -137,6 +140,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\reedsolomon.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\getopt.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -19,9 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{BAA52B23-7FB7-4ED3-BA55-FA57A8742B64}</ProjectGuid>
+    <ProjectGuid>{D8558AB6-5414-445B-B81B-77F9A0344007}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>dwggrep</RootNamespace>
+    <RootNamespace>dwgread</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -145,7 +145,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\programs\dwggrep.c" />
+    <ClCompile Include="..\..\..\programs\dwgread.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
