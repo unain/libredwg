@@ -17,7 +17,11 @@
  * written by Reini Urban
  */
 
+#ifndef  _WIN32
 #include "../src/config.h"
+#else
+#include "config_win32.h"
+#endif // ! _WIN32
 #include <stdio.h>
 #include <stdlib.h>
 #ifdef HAVE_STRCASESTR
@@ -31,7 +35,7 @@
 # include <string.h>
 # include <ctype.h>
 #endif
-#include <getopt.h>
+#include "getopt.h"
 #ifdef HAVE_PCRE2_H
 //use both, 8 and 16 (r2007+)
 # define PCRE2_CODE_UNIT_WIDTH 0
@@ -1104,7 +1108,7 @@ main (int argc, char *argv[])
         return help();
       case '?':
         fprintf(stderr, "%s: invalid option '-%c' ignored\n",
-                argv[0], optopt);
+                argv[0], optarg);
         break;
       default:
         return usage();
