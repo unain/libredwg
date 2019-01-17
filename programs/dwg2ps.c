@@ -20,8 +20,11 @@
  * modified by Thien-Thi Nguyen
  * modified by Reini Urban
  */
-
+#ifndef _WIN32
 #include "../src/config.h"
+#else
+#include "config_win32.h"
+#endif // !_WIN32
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -211,7 +214,7 @@ main(int argc, char *argv[])
           break;
         }
         fprintf(stderr, "%s: option '-%c' requires an argument\n",
-                argv[0], optopt);
+                argv[0], optind);
         break;
 #ifdef HAVE_GETOPT_LONG
       case 0:
@@ -260,7 +263,7 @@ main(int argc, char *argv[])
         return help();
       case '?':
         fprintf(stderr, "%s: invalid option '-%c' ignored\n",
-                argv[0], optopt);
+                argv[0], optind);
         break;
       default:
         return usage();
