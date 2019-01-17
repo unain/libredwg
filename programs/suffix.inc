@@ -17,8 +17,9 @@
  * written by Thien-Thi Nguyen
  * modified by Reini Urban
  */
-
+#ifndef _WIN32
 #include "config.h"
+#endif
 #ifdef __STDC_ALLOC_LIB__ /* for strdup */
 # define __STDC_WANT_LIB_EXT2__ 1
 #endif
@@ -27,7 +28,9 @@
 #endif
 #include <stdlib.h>
 #include <stdio.h>
+#ifndef _WIN32
 #include <libgen.h>
+#endif
 #include <string.h>
 
 char *

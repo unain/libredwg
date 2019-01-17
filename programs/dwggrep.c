@@ -247,7 +247,7 @@ do_match (const int is16, const char *restrict filename,
     for (int _i=0; _i<numdxf; _i++) { \
       if (dxf[_i] == dxfgroup) { dxfok = 1; break; } \
     } \
-    if (dxfok) { MATCH_TYPE(type,ENTITY,text_field,dxfgroup); } \
+    if (dxfok) { [[['(type,ENTITY,text_field,dxfgroup); } \
   } \
   else { \
     MATCH_TYPE(type,ENTITY,text_field,dxfgroup); \
