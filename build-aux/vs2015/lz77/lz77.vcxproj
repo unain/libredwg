@@ -146,7 +146,7 @@
     <ClInclude Include="..\..\..\src\lz77.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\lz77.cpp" />
+    <ClCompile Include="..\..\..\src\lz77.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

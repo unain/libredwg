@@ -20,7 +20,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\lz77.cpp">
+    <ClCompile Include="..\..\..\src\lz77.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

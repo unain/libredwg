@@ -49,7 +49,6 @@ void HashData(unsigned int dictpos, unsigned int bytestodo);
 void FindMatch(unsigned int dictpos, unsigned int startlen);
 void compute_opt(unsigned int i);
 void DictSearch(unsigned int dictpos, unsigned int bytestodo);
-extern "C" __declspec(dllexport)
 void Encode(char *memory, unsigned int size, char* filename);
 #endif // !LZ77_H
 #pragma once
