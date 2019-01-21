@@ -1905,18 +1905,29 @@ read_2004_compressed_section(Bit_Chain* dat, Dwg_Data *restrict dwg,
       LOG_INFO("Comp data size:   0x%x\n", (unsigned)es.fields.section_size)
       LOG_TRACE("StartOffset:      0x%x\n",(unsigned)es.fields.start_offset)
       LOG_HANDLE("Unknown:          0x%x\n",(unsigned)es.fields.unknown);
-      LOG_HANDLE("Checksum1:        0x%x\n",(unsigned)es.fields.checksum_1)
-      LOG_HANDLE("Checksum2:        0x%x\n\n",(unsigned)es.fields.checksum_2)
+	  LOG_HANDLE("Checksum1:        0x%x\n", (unsigned)es.fields.checksum_1)
+		  LOG_HANDLE("Checksum2:        0x%x\n\n", (unsigned)es.fields.checksum_2)
 
+		  int startIndex = dat->byte;
       error = decompress_R2004_section
         (dat, &decomp[i * info->max_decomp_size],     //offset
          max_decomp_size - (i*info->max_decomp_size), //bytes left
          es.fields.data_size);
+
       if (error > DWG_ERR_CRITICAL)
         {
           free(decomp);
           return error;
         }
+	  char buf[50];
+	  sprintf(buf, "%d_decode_.bin", i);
+	  FILE* file = fopen(buf, "wb");
+	  fwrite(&decomp[i * info->max_decomp_size], 1, es.fields.section_size, file);
+	  fclose(file);
+	  sprintf(buf, "%d_encode_.bin", i);
+	  file = fopen(buf, "wb");
+	  fwrite(dat->chain + startIndex, 1, dat->byte - startIndex, file);
+	  fclose(file);
     }
 
   sec_dat->bit     = 0;

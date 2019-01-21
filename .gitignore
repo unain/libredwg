@@ -154,3 +154,4 @@ gcov.log
 /src/config.h
 /src/config.h.in
 /src/stamp-h1
+/build-aux/vs2015/dwggrep/*.bin
