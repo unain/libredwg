@@ -241,7 +241,7 @@ do_match (const int is16, const char *restrict filename,
 }
 
 // check matching dxfgroup first to avoid costly utf8 conversions
-#define MATCH_DXF(type,ENTITY,text_field,dxfgroup)  \
+#define MATCH_DXF(type,ENTITY,text_field,dxfgroup) MATCH_TYPE(type,ENTITY,text_field,dxfgroup); /*\
   if (numdxf) { \
     int dxfok = 0; \
     for (int _i=0; _i<numdxf; _i++) { \
@@ -251,7 +251,7 @@ do_match (const int is16, const char *restrict filename,
   } \
   else { \
     MATCH_TYPE(type,ENTITY,text_field,dxfgroup); \
-  }
+  }*/
 
 //8bit only
 #define MATCH_NO16(type,ENTITY,text_field,dxfgroup) \
